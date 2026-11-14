@@ -19,7 +19,7 @@ try:
         auth, projects, datasets, analysis, cleaning, features,
         training, explain, api_gen, assistant, decision, simulator,
         self_healing, cost_carbon, readiness, experiments,
-        version_lineage, devops_agent
+        version_lineage, devops_agent, research
     )
 except (ImportError, ModuleNotFoundError):
     from .config import settings  # type: ignore
@@ -28,7 +28,7 @@ except (ImportError, ModuleNotFoundError):
         auth, projects, datasets, analysis, cleaning, features,
         training, explain, api_gen, assistant, decision, simulator,
         self_healing, cost_carbon, readiness, experiments,
-        version_lineage, devops_agent
+        version_lineage, devops_agent, research
     )
 
 @asynccontextmanager
@@ -87,7 +87,7 @@ routers = [
     cleaning.router, features.router, training.router, explain.router,
     api_gen.router, assistant.router, decision.router, simulator.router,
     self_healing.router, cost_carbon.router, readiness.router, experiments.router,
-    version_lineage.router, devops_agent.router
+    version_lineage.router, devops_agent.router, research.router
 ]
 
 for pfx in ["/api/v1", "/api"]:

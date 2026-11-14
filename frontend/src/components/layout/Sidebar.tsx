@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { 
   LayoutDashboard, Database, BarChart2, Wand2, 
   Dna, Cpu, Share2, FileCode2, Bot,
-  Plus, ArrowLeft, BrainCircuit, Sliders, ShieldCheck, Leaf, Award, GitBranch
+  Plus, ArrowLeft, BrainCircuit, Sliders, ShieldCheck, Leaf, Award, GitBranch, BookOpen
 } from 'lucide-react';
 import { useUIStore } from '@/lib/store';
 
@@ -21,6 +21,7 @@ export function Sidebar({ projectId }: { projectId?: string }) {
   const projectLinks = projectId ? [
     { name: 'Overview', href: `/projects/${projectId}`, icon: <LayoutDashboard /> },
     { name: 'Orvin Gate', href: `/projects/${projectId}/devops-agent`, icon: <BrainCircuit className="text-indigo-600" /> },
+    { name: 'Research Lab', href: `/projects/${projectId}/research`, icon: <BookOpen className="text-cyan-700" /> },
     { name: 'Datasets', href: `/projects/${projectId}/datasets`, icon: <Database /> },
     { name: 'AI Decision', href: `/projects/${projectId}/decision`, icon: <BrainCircuit className="text-amber-700" /> },
     { name: 'Analysis', href: `/projects/${projectId}/analysis`, icon: <BarChart2 /> },

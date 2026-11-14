@@ -414,6 +414,79 @@ class TestSuiteRunner:
             except Exception as e:
                 self.assert_test("Preemptive Antibody Propagation", False, str(e))
 
+            # ─────────────────────────────────────────────────────────────
+            # SECTION 12: RESEARCH-TO-EXPERIMENT & OBJECTIVE-BASED INTELLIGENCE
+            # ─────────────────────────────────────────────────────────────
+            print("\n[SECTION 12: Research-to-Experiment & Objective-Based Intelligence]")
+            test_headers = {"x-demo-mode": "true"}
+            proj_id = "0280b2ba-3838-4ba1-a9ce-20ffafde9c7c"
+            try:
+                proj_resp = client.get(f"{BASE_URL}/api/v1/projects", headers=test_headers)
+                if proj_resp.status_code == 200 and len(proj_resp.json()) > 0:
+                    # Prefer a project with dataset or models
+                    for p in proj_resp.json():
+                        if p.get("status") == "trained" or p.get("dataset_count", 0) > 0:
+                            proj_id = p["id"]
+                            break
+            except Exception:
+                pass
+
+            try:
+                r = client.get(f"{BASE_URL}/api/v1/projects/{proj_id}/research/papers", headers=test_headers)
+                self.assert_test("Peer-Reviewed Research Papers Endpoint (200)", r.status_code == 200)
+                papers_data = r.json()
+                self.assert_test("Research Benchmark Papers Loaded", len(papers_data.get("papers", [])) >= 2)
+            except Exception as e:
+                self.assert_test("Peer-Reviewed Research Papers Endpoint", False, str(e))
+
+            try:
+                r = client.get(f"{BASE_URL}/api/v1/projects/{proj_id}/research/compare", headers=test_headers)
+                self.assert_test("Research-to-Experiment Comparison Matrix (200)", r.status_code == 200)
+                comp_data = r.json()
+                self.assert_test("Literature vs ORVIN Matrix Present", len(comp_data.get("comparison_matrix", [])) > 0)
+                self.assert_test("Deterministic Lineage Hash Generated", "lineage_hash" in comp_data.get("experiment_reproducibility", {}))
+                self.assert_test("Addressed Literature Limitations Reported", len(comp_data.get("solved_literature_limitations", [])) > 0)
+            except Exception as e:
+                self.assert_test("Research-to-Experiment Comparison Matrix", False, str(e))
+
+            try:
+                r = client.post(
+                    f"{BASE_URL}/api/v1/projects/{proj_id}/research/recommend-by-objective",
+                    headers=test_headers,
+                    json={"objective": "low_latency"}
+                )
+                self.assert_test("Objective-Based Model Ranking (200)", r.status_code == 200)
+                obj_data = r.json()
+                self.assert_test("Objective Recommendation Generated", "recommended_algorithm" in obj_data)
+                self.assert_test("Dynamic Rankings Output", len(obj_data.get("rankings", [])) > 0)
+            except Exception as e:
+                self.assert_test("Objective-Based Model Ranking", False, str(e))
+
+            try:
+                r = client.get(f"{BASE_URL}/api/v1/projects/{proj_id}/research/dataset-health", headers=test_headers)
+                self.assert_test("Dataset Health & Pre-Flight Audit Endpoint (200)", r.status_code == 200)
+                health_data = r.json()
+                self.assert_test("Dataset Health Score (0-100) Computed", 0 <= health_data.get("dataset_health_score", -1) <= 100)
+                self.assert_test("Target Leakage & Imbalance Checks Executed", len(health_data.get("checks", [])) >= 5)
+            except Exception as e:
+                self.assert_test("Dataset Health & Pre-Flight Audit Endpoint", False, str(e))
+
+            try:
+                custom_payload = {
+                    "title": "Benchmarking Ensembles in Clinical Medicine (arXiv 2024)",
+                    "content": "We evaluated Random Forest and Logistic Regression on clinical cohorts. Random Forest achieved 76% accuracy, while Logistic Regression reached 71%. Severe class imbalance was noted as a limitation."
+                }
+                r = client.post(
+                    f"{BASE_URL}/api/v1/projects/{proj_id}/research/upload-paper",
+                    headers=test_headers,
+                    json=custom_payload
+                )
+                self.assert_test("Custom Research Literature Ingestion (200)", r.status_code == 200)
+                custom_res = r.json()
+                self.assert_test("Custom Paper Benchmarks Extracted", len(custom_res.get("extracted_paper", {}).get("benchmarks", [])) >= 2)
+            except Exception as e:
+                self.assert_test("Custom Research Literature Ingestion", False, str(e))
+
         # ─────────────────────────────────────────────────────────────
         # SUMMARY REPORT
         # ─────────────────────────────────────────────────────────────

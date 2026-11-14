@@ -408,4 +408,32 @@ export const api = {
         body: JSON.stringify({ target_version: targetVersion, model_id: modelId }),
       }),
   },
+
+  // ── Research-to-Experiment & Objective-Based Intelligence ──
+  research: {
+    getPapers: (projectId: string) =>
+      fetchAPI(`/projects/${projectId}/research/papers`),
+
+    uploadPaper: (projectId: string, payload: { title?: string; content: string }) =>
+      fetchAPI(`/projects/${projectId}/research/upload-paper`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
+
+    getComparison: (projectId: string, paperId?: string) => {
+      const q = paperId ? `?paper_id=${encodeURIComponent(paperId)}` : '';
+      return fetchAPI(`/projects/${projectId}/research/compare${q}`);
+    },
+
+    recommendByObjective: (projectId: string, objective: string) =>
+      fetchAPI(`/projects/${projectId}/research/recommend-by-objective`, {
+        method: 'POST',
+        body: JSON.stringify({ objective }),
+      }),
+
+    getDatasetHealth: (projectId: string, datasetId?: string) => {
+      const q = datasetId ? `?dataset_id=${encodeURIComponent(datasetId)}` : '';
+      return fetchAPI(`/projects/${projectId}/research/dataset-health${q}`);
+    },
+  },
 };

@@ -1,10 +1,11 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import Link from 'next/link';
 import { 
   Sparkles, BrainCircuit, Wand2, Cpu, Server, Activity, 
   CheckCircle2, AlertTriangle, ArrowRight, Download, RefreshCw, 
-  Layers, ShieldAlert, Zap, Filter, ChevronDown, ChevronUp
+  Layers, ShieldAlert, Zap, Filter, ChevronDown, ChevronUp, BookOpen
 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
@@ -278,6 +279,26 @@ export default function DecisionEnginePage() {
           </div>
         </div>
       )}
+
+      {/* Research-to-Experiment Shortcut Banner */}
+      <div className="p-4 rounded-2xl bg-indigo-50/60 border border-indigo-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-sm">
+        <div className="flex items-center gap-2.5 text-indigo-950">
+          <div className="p-1.5 rounded-lg bg-indigo-100 border border-indigo-200 shrink-0">
+            <BookOpen className="w-4 h-4 text-indigo-700" />
+          </div>
+          <div>
+            <span className="font-bold">Research-to-Experiment Intelligence & Model Selector:</span>
+            <span className="text-[#475569] ml-1">Compare models against published literature baselines and rank by objective (latency, explainability, green footprint).</span>
+          </div>
+        </div>
+        <Link 
+          href={`/projects/${projectId}/research`}
+          className="px-3.5 py-1.5 rounded-xl bg-indigo-600 text-white font-bold text-xs hover:bg-indigo-700 transition-colors shrink-0 text-center flex items-center justify-center gap-1"
+        >
+          <span>Open Research Lab</span>
+          <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
 
       {/* Category Pills & Filters */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-[#E2DCD0]">

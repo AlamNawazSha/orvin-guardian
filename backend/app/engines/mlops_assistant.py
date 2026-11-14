@@ -181,6 +181,40 @@ async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
             )
             ctx['feature_importance'] = top_features
 
+    # ── Research Literature Benchmarking ──
+    try:
+        from app.engines.research_intelligence_engine import generate_research_comparison
+        model_dicts = [
+            {
+                "id": m.id,
+                "algorithm": m.algorithm,
+                "metrics": m.metrics or {},
+                "version": m.version,
+                "training_time_seconds": m.training_time_seconds,
+                "is_selected": m.is_selected
+            }
+            for m in models
+        ]
+        res_comp = generate_research_comparison(model_dicts)
+        ctx['research_benchmarks'] = {
+            'paper_title': res_comp.get('paper_title'),
+            'paper_journal': res_comp.get('paper_journal'),
+            'average_accuracy_lift_pct': res_comp.get('average_accuracy_lift_pct'),
+            'summary_verdict': res_comp.get('summary_verdict'),
+            'comparison': [
+                {
+                    'algorithm': r['algorithm'],
+                    'published_acc': r['published_accuracy'],
+                    'orvin_acc': r['orvin_actual_accuracy'],
+                    'accuracy_lift_pct': r['accuracy_lift_pct'],
+                    'status': r['status']
+                }
+                for r in res_comp.get('comparison_matrix', [])
+            ][:4]
+        }
+    except Exception:
+        pass
+
     return ctx
 
 
@@ -188,15 +222,17 @@ async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
 # 2. Multi-Provider LLM Caller (Groq LPU + Gemini)
 # ──────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are an expert AI MLOps and Data Science Assistant for the AutoMLOps platform.
-You help users understand their machine learning project results, domain goals, and predictions in clear, actionable detail.
+_SYSTEM_PROMPT = """You are an expert AI MLOps and Data Science Assistant for the ORVIN Guardian platform.
+You help users understand their machine learning project results, domain goals, research benchmarks, and predictions in clear, actionable detail.
 
 GROUNDING RULES:
 1. ONLY reference numbers, metrics, model names, and feature names that appear in the CONTEXT below.
 2. NEVER invent, estimate, or hallucinate any metric value.
 3. When the user asks about the 'motto', 'objective', 'goal', or 'purpose' of the analytics, analyze the dataset features (e.g. clinical biomarkers, enzymes, business metrics) and explain the real-world domain problem being solved.
 4. When the user asks about predictions, explain how the model uses the top predictive features to produce outcomes.
-5. Keep answers well-structured, insightful, and actionable with clear markdown formatting.
+5. When asked how this platform differs from ChatGPT or H2O, articulate our key differentiators: Research-to-Experiment Literature Benchmarking (linking papers directly to reproducible experiments), Pre-Flight Dataset Quality & Leakage Auditing, Objective-Based Model Ranking (Latency vs Accuracy vs Explainability), and the Hindsight Memory CI/CD Pre-Flight Gate.
+6. When asked about research papers, literature benchmarks, or how models compare to published findings, cite the exact published accuracy vs ORVIN actual accuracy and the calculated percentage lift from `research_benchmarks`.
+7. Keep answers well-structured, insightful, and actionable with clear markdown formatting.
 
 CONTEXT (real computed data from the user's project):
 {context_json}
