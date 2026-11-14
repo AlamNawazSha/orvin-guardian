@@ -10,7 +10,7 @@ interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
-  source?: 'gemini' | 'fallback';
+  source?: string;
   grounded_context?: Record<string, any>;
   timestamp: Date;
 }
@@ -205,6 +205,11 @@ export default function AssistantPage() {
                       {msg.source === 'gemini' && (
                         <span className="ml-1.5 px-1.5 py-0.5 rounded bg-blue-100 text-blue-800 text-[10px] font-mono font-bold border border-blue-200">
                           gemini
+                        </span>
+                      )}
+                      {(msg.source === 'groq-qwen' || msg.source === 'groq') && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 text-[10px] font-mono font-bold border border-emerald-200">
+                          groq-qwen
                         </span>
                       )}
                       {msg.source === 'fallback' && (

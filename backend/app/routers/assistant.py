@@ -6,6 +6,7 @@ from app.models.user import User
 from app.schemas.assistant import AssistantQuestion, AssistantResponse, SuggestionsResponse
 from app.engines.mlops_assistant import (
     build_context_payload,
+    ask_llm,
     ask_gemini,
     generate_fallback_answer,
     generate_suggestions,
@@ -54,16 +55,16 @@ async def ask_assistant(
     context = await build_context_payload(db, project_id)
     grounded = _build_grounded_summary(context)
 
-    # Try Gemini first
+    # Use multi-provider LLM (Groq LPU Qwen / Gemini) with grounded context
     try:
-        answer = ask_gemini(context, body.question)
+        answer, source = await ask_llm(context, body.question)
         return AssistantResponse(
             answer=answer,
-            source="gemini",
+            source=source,
             grounded_context=grounded,
         )
-    except Exception:
-        # Fallback to deterministic template — guaranteed to succeed
+    except Exception as e:
+        # Fallback to upgraded deterministic template — guaranteed to succeed
         answer = generate_fallback_answer(context, body.question)
         return AssistantResponse(
             answer=answer,

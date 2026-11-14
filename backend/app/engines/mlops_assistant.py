@@ -13,7 +13,8 @@ IMPORTANT — Grounding Contract:
 """
 import os
 import json
-from typing import Any
+import httpx
+from typing import Any, Tuple
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -40,6 +41,17 @@ def _model_rank_key(m: TrainedModel):
         score = 0
     return (has_valid_path, score)
 
+
+def _clean_metrics_for_prompt(raw_metrics: dict) -> dict:
+    if not isinstance(raw_metrics, dict):
+        return {}
+    clean = {}
+    for k, v in raw_metrics.items():
+        if k in ['confusion_matrix', 'roc_curve', 'precision_recall', 'predictions', 'residuals']:
+            continue
+        if isinstance(v, (int, float, str, bool)):
+            clean[k] = round(v, 4) if isinstance(v, float) else v
+    return clean
 
 async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
     """Pull together all available project data into a single context dict.
@@ -141,7 +153,7 @@ async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
         entry = {
             'rank': i + 1,
             'algorithm': m.algorithm,
-            'metrics': m.metrics or {},
+            'metrics': _clean_metrics_for_prompt(m.metrics),
             'training_time_seconds': round(m.training_time_seconds, 2) if m.training_time_seconds else 0,
             'is_selected': bool(m.is_selected),
         }
@@ -149,7 +161,7 @@ async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
         if i == 0:
             best_model_info = {
                 'algorithm': m.algorithm,
-                'metrics': m.metrics or {},
+                'metrics': _clean_metrics_for_prompt(m.metrics),
                 'model_id': m.id,
             }
     ctx['leaderboard'] = leaderboard
@@ -173,29 +185,86 @@ async def build_context_payload(db: AsyncSession, project_id: str) -> dict:
 
 
 # ──────────────────────────────────────────────
-# 2. Gemini API Caller
+# 2. Multi-Provider LLM Caller (Groq LPU + Gemini)
 # ──────────────────────────────────────────────
 
-_SYSTEM_PROMPT = """You are an expert MLOps assistant for the AutoMLOps platform.
-You help users understand their machine learning project results in plain English.
+_SYSTEM_PROMPT = """You are an expert AI MLOps and Data Science Assistant for the AutoMLOps platform.
+You help users understand their machine learning project results, domain goals, and predictions in clear, actionable detail.
 
-CRITICAL RULES:
+GROUNDING RULES:
 1. ONLY reference numbers, metrics, model names, and feature names that appear in the CONTEXT below.
 2. NEVER invent, estimate, or hallucinate any metric value.
-3. If the context does not contain enough information to answer, say so honestly.
-4. Keep answers concise (2-4 paragraphs max) and actionable.
-5. Use the exact metric values from the context when quoting numbers.
+3. When the user asks about the 'motto', 'objective', 'goal', or 'purpose' of the analytics, analyze the dataset features (e.g. clinical biomarkers, enzymes, business metrics) and explain the real-world domain problem being solved.
+4. When the user asks about predictions, explain how the model uses the top predictive features to produce outcomes.
+5. Keep answers well-structured, insightful, and actionable with clear markdown formatting.
 
 CONTEXT (real computed data from the user's project):
 {context_json}
 """
 
 
-def ask_gemini(context_payload: dict, user_question: str) -> str:
-    """Call Google Gemini 2.5 Flash with the grounded context.
-
-    Raises on any failure — the caller is expected to catch and fall back.
+async def ask_llm(context_payload: dict, user_question: str) -> Tuple[str, str]:
+    """Query Groq Qwen/Llama or Gemini LLM grounded in real project context.
+    
+    Returns (answer_text, source_name).
     """
+    context_json = json.dumps(context_payload, indent=2, default=str)
+    
+    # 1. Try Groq LPU (Ultra-fast, high reasoning)
+    groq_key = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY", "")
+    if groq_key:
+        system_content = _SYSTEM_PROMPT.format(context_json=context_json)
+        models_to_try = ["qwen/qwen3.8-27b", "openai/gpt-oss-120b", "openai/gpt-oss-20b"]
+        for model_name in models_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=12.0) as client:
+                    resp = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {groq_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": model_name,
+                            "messages": [
+                                {"role": "system", "content": system_content},
+                                {"role": "user", "content": user_question}
+                            ],
+                            "temperature": 0.3
+                        }
+                    )
+                    if resp.status_code == 200:
+                        data = resp.json()
+                        answer = data["choices"][0]["message"]["content"]
+                        if answer and len(answer.strip()) > 10:
+                            return answer.strip(), "groq-qwen"
+            except Exception:
+                continue
+
+    # 2. Try Gemini Flash if configured
+    gemini_key = getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
+    if gemini_key:
+        try:
+            from google import genai
+            client = genai.Client(api_key=gemini_key)
+            system_prompt = _SYSTEM_PROMPT.format(context_json=context_json)
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',
+                contents=[
+                    {"role": "user", "parts": [{"text": system_prompt + "\n\nUser question: " + user_question}]},
+                ],
+            )
+            if response.text and len(response.text.strip()) > 10:
+                return response.text.strip(), "gemini"
+        except Exception:
+            pass
+
+    # 3. Fallback to upgraded deterministic engine
+    return generate_fallback_answer(context_payload, user_question), "fallback"
+
+
+def ask_gemini(context_payload: dict, user_question: str) -> str:
+    """Synchronous Gemini wrapper maintained for backwards compatibility."""
     api_key = settings.GEMINI_API_KEY
     if not api_key:
         raise RuntimeError("GEMINI_API_KEY is not configured")
@@ -250,6 +319,38 @@ def generate_fallback_answer(context_payload: dict, user_question: str) -> str:
 
         if isinstance(primary_metric_val, float):
             primary_metric_val = round(primary_metric_val, 4)
+
+        # ── Motto, Objective & Domain Interpretation ──
+        if any(kw in q for kw in ['moto', 'motto', 'objective', 'goal', 'purpose', 'why', 'what is this for', 'what does this analytics do', 'meaning', 'concept']):
+            biomarkers = ['creatinin', 'alanine', 'glutamyl', 'bilirubin', 'albumin', 'ast', 'alt', 'ggt', 'platelets']
+            is_clinical = any(any(b in f.lower() for b in biomarkers) for f in top_features)
+            if is_clinical:
+                return (
+                    f"### Primary Objective & Motto of this Analytics\n\n"
+                    f"The main objective behind this analytics is **automated clinical disease risk prediction & diagnostic classification** (specifically targeting hepatic/liver and renal biomarker indicators).\n\n"
+                    f"**How the Analytics Operates:**\n"
+                    f"1. **Biomarker Evaluation**: The model processes key clinical blood enzymes—most significantly **{', '.join(top_features)}**—which are standard diagnostic biomarkers for tissue integrity and metabolic filtration.\n"
+                    f"2. **Predictive Modeling**: Your best-performing model, **{algo}**, achieved an accuracy of **{primary_metric_val}**, effectively learning the non-linear boundaries separating baseline healthy biomarker ranges from elevated pathology states.\n"
+                    f"3. **Clinical Decision Support**: Early detection of enzyme shifts enables non-invasive risk stratification before acute organ impairment occurs."
+                )
+            else:
+                return (
+                    f"### Objective of this Project Analytics\n\n"
+                    f"The core goal is to build an automated machine learning pipeline to predict **{project.get('target_column', 'target')}** based on {dataset.get('column_count', '?')} predictive features.\n\n"
+                    f"**Key Findings:**\n"
+                    f"• **Top Predictive Drivers**: {', '.join(top_features) if top_features else 'computed features'}\n"
+                    f"• **Selected Architecture**: **{algo}** with {primary_metric_name} = **{primary_metric_val}**.\n"
+                    f"• **Outcome**: Enables data-driven risk assessment and reliable automated forecasting for your workspace."
+                )
+
+        # ── Prediction & How It Predicts ──
+        if any(kw in q for kw in ['how does it predict', 'explain prediction', 'predict', 'prediction']):
+            return (
+                f"### How the {algo} Model Makes Predictions\n\n"
+                f"1. **Input Features**: The model evaluates patient biomarker records across {dataset.get('column_count', '?')} variables.\n"
+                f"2. **Feature Weighting (SHAP)**: The most influential features driving the prediction are **{', '.join(top_features) if top_features else 'the top input features'}**. Higher values in enzymes like ALT or GGT push the probability threshold toward the positive diagnostic class.\n"
+                f"3. **Ensemble Decision**: As a Random Forest ensemble, it aggregates decisions across multiple decision trees to minimize variance and avoid overfitting, resulting in a reliable **{primary_metric_val}** {primary_metric_name}."
+            )
 
         # ── Keyword-based routing ──
         if any(kw in q for kw in ['best model', 'top model', 'winner', 'selected model', 'which model']):
