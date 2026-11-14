@@ -26,6 +26,9 @@ export default function NewProjectPage() {
     try {
       setLoading(true);
       setError(null);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:nav-start'));
+      }
       const project = await api.projects.create({
         name: name.trim(),
         description: description.trim() || undefined,
@@ -39,8 +42,10 @@ export default function NewProjectPage() {
         throw new Error('Project was created but did not return a valid ID');
       }
     } catch (err: any) {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('app:nav-end'));
+      }
       setError(err.message || 'Failed to create project. Please verify you are logged in.');
-    } finally {
       setLoading(false);
     }
   };
@@ -62,7 +67,18 @@ export default function NewProjectPage() {
             <FolderPlus className="w-5 h-5 text-indigo-700" /> Project Configuration
           </h3>
         </CardHeader>
-        <CardBody className="p-6">
+        <CardBody className="p-6 relative">
+          {loading && (
+            <div className="absolute inset-0 bg-[#FFFDF9]/90 backdrop-blur-xs z-20 flex flex-col items-center justify-center rounded-2xl animate-fade-in p-6 text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 shadow-xs">
+                <Loader2 className="w-6 h-6 animate-spin" />
+              </div>
+              <div className="space-y-0.5">
+                <h4 className="font-bold text-sm text-[#0F172A]">Creating Workspace...</h4>
+                <p className="text-xs text-[#64748B]">Setting up configuration and moving to Dataset Studio</p>
+              </div>
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             <Input
               label="Project Name *"

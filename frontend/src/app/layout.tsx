@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { NavigationProgressBar } from "@/components/ui/NavigationProgressBar";
 
 export const metadata: Metadata = {
   title: "Orvin AI — Autonomous Pre-Flight Gate & Enterprise AutoML",
@@ -14,6 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-[#F5F1E8] text-[#0F172A] font-sans antialiased min-h-screen flex flex-col selection:bg-[#E2DCD0] selection:text-[#0F172A]">
+        <NavigationProgressBar />
         {children}
       </body>
     </html>
