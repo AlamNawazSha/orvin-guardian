@@ -7,3 +7,5 @@ from .trained_model import TrainedModel
 from .explanation import ExplanationReport
 from .generated_api import GeneratedAPI
 from .experiment import ExperimentRun
+from .incident_memory import IncidentMemory
+from .pr_analysis_record import PRAnalysisRecord

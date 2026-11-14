@@ -5,7 +5,7 @@ import { BrainCircuit, Mail, Lock, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('demo@automlops.ai');
-  const [password, setPassword] = useState('password123');
+  const [password, setPassword] = useState('demopassword123');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

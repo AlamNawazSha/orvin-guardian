@@ -6,7 +6,10 @@ precision-recall curves. All chart data is Plotly-compatible JSON.
 """
 import numpy as np
 import pandas as pd
-import shap
+try:
+    import shap
+except ImportError:
+    shap = None
 from sklearn.metrics import (
     confusion_matrix as sk_confusion_matrix,
     roc_curve, auc, precision_recall_curve,

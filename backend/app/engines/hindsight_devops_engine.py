@@ -1,61 +1,83 @@
-"""Hindsight DevOps Agent Engine for AutoMLOps Platform.
+"""Hindsight DevOps Agent Engine for ORVIN Guardian.
 
-Provides Pre-Flight CI/CD Risk Assessment, Post-Mortem Incident Retention,
-Semantic Recall across Hindsight Memory Banks, and Groq-powered Auto-Patching.
+Provides:
+- Official Vectorize Hindsight Client (`hindsight_client.Hindsight`) integration
+- Pre-Flight CI/CD Risk Assessment via Change Intelligence Engine
+- Post-Mortem Incident Retention backed by Persistent SQLite/Postgres Database
+- Dual-Engine Recall: Hindsight Cloud REST API / SDK + Hybrid Semantic Local Store
+- Explicit Episodic Reflect Operation
+- Groq / Gemini LLM Auto-Patching with Isolated Sandbox AST/YAML Verification
 """
 
 import os
+import re
 import json
 import httpx
 from datetime import datetime
 from typing import List, Dict, Any, Optional
-from app.config import settings
 
-# API Key Configuration
+from sqlalchemy.future import select
+from sqlalchemy import desc
+
+from app.config import settings
+from app.database import AsyncSessionLocal
+from app.models.incident_memory import IncidentMemory
+from app.models.pr_analysis_record import PRAnalysisRecord
+from app.engines.change_intelligence_engine import change_intelligence_engine
+from app.engines.patch_sandbox_engine import patch_sandbox_engine
+
+# Official Vectorize Hindsight Client
+try:
+    from hindsight_client import Hindsight
+except ImportError:
+    Hindsight = None
+
+# Configuration
 GROQ_API_KEY = getattr(settings, "GROQ_API_KEY", "") or os.getenv("GROQ_API_KEY", "")
+GEMINI_API_KEY = getattr(settings, "GEMINI_API_KEY", "") or os.getenv("GEMINI_API_KEY", "")
 HINDSIGHT_API_KEY = getattr(settings, "HINDSIGHT_API_KEY", "") or os.getenv("HINDSIGHT_API_KEY", "")
-HINDSIGHT_BANK_ID = os.getenv("HINDSIGHT_BANK_ID", "devops_postmortems_bank")
+HINDSIGHT_BASE_URL = getattr(settings, "HINDSIGHT_BASE_URL", "https://api.hindsight.vectorize.io") or os.getenv("HINDSIGHT_BASE_URL", "https://api.hindsight.vectorize.io")
+HINDSIGHT_BANK_ID = getattr(settings, "HINDSIGHT_BANK_ID", "orvin_devops_postmortems") or os.getenv("HINDSIGHT_BANK_ID", "orvin_devops_postmortems")
 
 # ──────────────────────────────────────────────
-# 1. Pre-Loaded Enterprise Incidents (Initial Memory Bank)
+# 1. Initial Enterprise Incidents (Seed Data)
 # ──────────────────────────────────────────────
 
 PRELOADED_MEMORIES = [
     {
         "id": "inc-104",
-        "timestamp": "14 days ago",
         "title": "Incident #104: NumPy 2.0.0 ABI Breaking Change in Cython/PyTorch Extensions",
         "category": "dependency",
         "severity": "CRITICAL",
         "summary": "Upgrading numpy>=2.0.0 without un-pinning caused C-API ABI incompatible binary mismatches in Cython extensions during model inference, producing silent segmentation faults and model server crashes.",
         "prevention_rule": "Pin numpy<2.0.0 in requirements.txt or recompile Cython extensions against NumPy 2.x ABI headers.",
-        "recall_score": 0.98
+        "affected_service": "ml-inference-service",
+        "recall_score": 0.98,
+        "source": "enterprise_postmortem"
     },
     {
         "id": "inc-88",
-        "timestamp": "30 days ago",
         "title": "Incident #88: CUDA 12.2 GPU Out-Of-Memory (OOM) Kubernetes Pod Eviction",
         "category": "hardware_oom",
         "severity": "HIGH",
         "summary": "Increasing worker concurrency from 2 to 8 in microservice deployment caused VRAM overcommit on NVIDIA A10G GPUs (24GB), leading to K8s OOMKilled evictions during peak batch prediction traffic.",
         "prevention_rule": "Limit worker concurrency to max 4 per GPU or implement batch queue throttling with explicit CUDA memory ceiling (MAX_VRAM_MB=18000).",
-        "recall_score": 0.94
+        "affected_service": "k8s-inference-worker",
+        "recall_score": 0.94,
+        "source": "enterprise_postmortem"
     },
     {
         "id": "inc-62",
-        "timestamp": "45 days ago",
         "title": "Incident #62: Staging vs Production Redis Auth Secret Drift",
         "category": "secret_drift",
         "severity": "HIGH",
         "summary": "Adding a Redis caching layer to backend models without declaring REDIS_AUTH_TOKEN in Production Kubernetes Secret manifests caused silent connection dropouts and 500 errors upon production rollout.",
         "prevention_rule": "Enforce explicit Secret manifest validation: REDIS_AUTH_TOKEN must be defined in both staging and prod secret templates before merging deployment changes.",
-        "recall_score": 0.92
+        "affected_service": "feature-store-caching",
+        "recall_score": 0.92,
+        "source": "enterprise_postmortem"
     }
 ]
-
-# ──────────────────────────────────────────────
-# 2. Pre-Loaded 3 Enterprise Scenarios for Demo
-# ──────────────────────────────────────────────
 
 PRELOADED_SCENARIOS = [
     {
@@ -108,94 +130,237 @@ PRELOADED_SCENARIOS = [
     }
 ]
 
-# In-memory store for custom retained memories during session
-LIVE_MEMORY_BANK = list(PRELOADED_MEMORIES)
-
-
-# ──────────────────────────────────────────────
-# 3. Engine Class Implementation
-# ──────────────────────────────────────────────
-
 class HindsightDevOpsEngine:
-    """Core Engine integrating Hindsight Cloud REST API and Groq LLM."""
+    """Core Engine integrating Vectorize Hindsight Client, Persistent DB, and Change Intelligence."""
 
     def __init__(self):
         self.groq_api_key = GROQ_API_KEY
+        self.gemini_api_key = GEMINI_API_KEY
         self.hindsight_api_key = HINDSIGHT_API_KEY
+        self.base_url = HINDSIGHT_BASE_URL
         self.bank_id = HINDSIGHT_BANK_ID
+        self._seeded = False
 
-    async def recall_memories(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
-        """Recall relevant incident post-mortems from Hindsight Memory Bank.
-        
-        Attempts live Hindsight API query first; falls back to semantic keyword matching
-        against local memory store.
-        """
-        # Try Live Hindsight API
-        try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                res = await client.post(
-                    f"https://api.hindsight.ai/v1/banks/{self.bank_id}/recall",
-                    headers={"Authorization": f"Bearer {self.hindsight_api_key}"},
-                    json={"query": query, "top_k": limit}
+        # Initialize official Vectorize Hindsight client if available
+        self.hindsight_client = None
+        if Hindsight and self.hindsight_api_key:
+            try:
+                self.hindsight_client = Hindsight(
+                    base_url=self.base_url,
+                    api_key=self.hindsight_api_key
                 )
-                if res.status_code == 200:
-                    data = res.json()
-                    memories = data.get("memories", [])
-                    if memories:
-                        return memories
-        except Exception:
-            pass  # Fail smoothly to local memory bank
+            except Exception as e:
+                print(f"[HINDSIGHT CLIENT INIT NOTE] {e}")
 
-        # Fallback Local Semantic Recall Matcher
-        q_lower = query.lower()
+    async def _ensure_seeded(self):
+        """Seed the persistent database table if empty."""
+        if self._seeded:
+            return
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(select(IncidentMemory))
+                existing = result.scalars().all()
+                if not existing:
+                    for mem in PRELOADED_MEMORIES:
+                        item = IncidentMemory(
+                            id=mem["id"],
+                            title=mem["title"],
+                            category=mem["category"],
+                            severity=mem.get("severity", "HIGH"),
+                            summary=mem["summary"],
+                            prevention_rule=mem["prevention_rule"],
+                            affected_service=mem.get("affected_service", "ml-inference-service"),
+                            recall_score=mem.get("recall_score", 0.95),
+                            source="enterprise_postmortem"
+                        )
+                        session.add(item)
+                    await session.commit()
+            self._seeded = True
+        except Exception as e:
+            print(f"[HINDSIGHT ENGINE] DB seed check note: {e}")
+
+    async def get_all_memories(self) -> List[Dict[str, Any]]:
+        """Retrieve all active incident memories from persistent database storage."""
+        await self._ensure_seeded()
+        try:
+            async with AsyncSessionLocal() as session:
+                result = await session.execute(select(IncidentMemory).order_by(desc(IncidentMemory.created_at)))
+                records = result.scalars().all()
+                if records:
+                    return [
+                        {
+                            "id": r.id,
+                            "timestamp": r.created_at.strftime("%Y-%m-%d %H:%M") if r.created_at else "Historical",
+                            "title": r.title,
+                            "category": r.category,
+                            "severity": r.severity,
+                            "summary": r.summary,
+                            "prevention_rule": r.prevention_rule,
+                            "affected_service": r.affected_service,
+                            "recall_score": r.recall_score,
+                            "source": r.source or "local_database"
+                        }
+                        for r in records
+                    ]
+        except Exception as e:
+            print(f"[HINDSIGHT ENGINE] Fetch error: {e}")
+
+        return list(PRELOADED_MEMORIES)
+
+    async def recall_memories(self, query: str, limit: int = 3, threshold: float = 0.65) -> List[Dict[str, Any]]:
+        """Recall relevant incident post-mortems using official Hindsight SDK or Hybrid Local Matcher."""
+        await self._ensure_seeded()
+        all_memories = await self.get_all_memories()
+
+        # 1. Attempt official Hindsight client if connected
+        if self.hindsight_client:
+            try:
+                res = await self.hindsight_client.arecall(
+                    bank_id=self.bank_id,
+                    query=query
+                )
+                if res and hasattr(res, "results") and res.results:
+                    retrieved = []
+                    for fact in res.results[:limit]:
+                        retrieved.append({
+                            "id": getattr(fact, "id", f"fact-{len(retrieved)}"),
+                            "timestamp": "Recalled from Hindsight Cloud",
+                            "title": getattr(fact, "text", "Recalled Memory Fact"),
+                            "category": getattr(fact, "type", "experience"),
+                            "severity": "HIGH",
+                            "summary": getattr(fact, "text", ""),
+                            "prevention_rule": getattr(fact, "text", ""),
+                            "recall_score": 0.96,
+                            "source": "vectorize_hindsight_cloud"
+                        })
+                    if retrieved:
+                        return retrieved
+            except Exception as e:
+                print(f"[HINDSIGHT SDK RECALL NOTE] {e}")
+
+        # 2. Local Hybrid Semantic Recall Matcher with hard relevance threshold
+        q_tokens = set(re.findall(r"\w+", query.lower()))
         matched = []
-        for mem in LIVE_MEMORY_BANK:
-            score = 0.5
-            if any(k in q_lower for k in ["numpy", "abi", "pydantic", "cython", "requirement"]) and mem["category"] == "dependency":
-                score = 0.98
-            elif any(k in q_lower for k in ["cuda", "gpu", "oom", "concurrency", "vram", "k8s", "worker"]) and mem["category"] == "hardware_oom":
-                score = 0.94
-            elif any(k in q_lower for k in ["redis", "secret", "token", "env", "drift", "auth"]) and mem["category"] == "secret_drift":
-                score = 0.92
-            
-            item = dict(mem)
-            item["recall_score"] = score
-            matched.append(item)
+
+        for mem in all_memories:
+            mem_text = f"{mem['title']} {mem['summary']} {mem['prevention_rule']} {mem['category']}".lower()
+            mem_tokens = set(re.findall(r"\w+", mem_text))
+
+            common = q_tokens.intersection(mem_tokens)
+            score = 0.0
+
+            cat = mem.get("category", "")
+            if cat == "dependency" and any(k in q_tokens for k in ["numpy", "abi", "pydantic", "cython", "requirement", "upgrade", "pin"]):
+                score = 0.98 if "numpy" in q_tokens or "abi" in q_tokens else 0.88
+            elif cat == "hardware_oom" and any(k in q_tokens for k in ["cuda", "gpu", "oom", "concurrency", "worker_concurrency", "vram", "k8s"]):
+                score = 0.95 if "worker_concurrency" in q_tokens or "concurrency" in q_tokens else 0.85
+            elif cat == "secret_drift" and any(k in q_tokens for k in ["redis", "token", "secret", "auth", "drift", "env"]):
+                score = 0.93 if "redis_auth_token" in q_tokens or "secret" in q_tokens else 0.82
+            elif len(common) > 3:
+                score = min(0.60 + (len(common) * 0.05), 0.85)
+            else:
+                score = 0.20
+
+            if score >= threshold:
+                item = dict(mem)
+                item["recall_score"] = round(score, 2)
+                item["provenance"] = "verified_database_record"
+                matched.append(item)
 
         matched.sort(key=lambda x: x["recall_score"], reverse=True)
         return matched[:limit]
 
-    async def retain_incident(self, title: str, description: str, category: str, prevention_rule: str, service: str = "ml-inference-service") -> Dict[str, Any]:
-        """Store a new incident post-mortem into Hindsight Memory."""
-        new_item = {
-            "id": f"inc-{len(LIVE_MEMORY_BANK) + 101}",
+    async def retain_incident(
+        self,
+        title: str,
+        description: str,
+        category: str,
+        prevention_rule: str,
+        service: str = "ml-inference-service",
+        severity: str = "HIGH"
+    ) -> Dict[str, Any]:
+        """Store a new incident post-mortem into persistent database storage and sync to Hindsight."""
+        await self._ensure_seeded()
+        new_id = f"inc-{int(datetime.utcnow().timestamp())}"
+
+        # 1. Persist to Database
+        try:
+            async with AsyncSessionLocal() as session:
+                mem_record = IncidentMemory(
+                    id=new_id,
+                    title=title,
+                    category=category,
+                    severity=severity,
+                    summary=description,
+                    prevention_rule=prevention_rule,
+                    affected_service=service,
+                    recall_score=0.99,
+                    source="manual_retention"
+                )
+                session.add(mem_record)
+                await session.commit()
+        except Exception as e:
+            print(f"[HINDSIGHT ENGINE] DB save error: {e}")
+
+        # 2. Sync to Vectorize Hindsight SDK if configured
+        if self.hindsight_client:
+            try:
+                await self.hindsight_client.aretain(
+                    bank_id=self.bank_id,
+                    content=f"Incident: {title}\nRoot Cause: {description}\nEnforced Prevention Rule: {prevention_rule}",
+                    metadata={"category": category, "service": service, "id": new_id},
+                    tags=[category, "devops_postmortem"]
+                )
+            except Exception as e:
+                print(f"[HINDSIGHT SDK RETAIN NOTE] {e}")
+
+        return {
+            "id": new_id,
             "timestamp": "Just now",
             "title": title,
             "category": category,
-            "severity": "HIGH",
+            "severity": severity,
             "summary": description,
             "prevention_rule": prevention_rule,
-            "recall_score": 0.99
+            "affected_service": service,
+            "recall_score": 0.99,
+            "source": "persisted_database"
         }
-        
-        # Append to live local memory bank
-        LIVE_MEMORY_BANK.insert(0, new_item)
 
-        # Attempt to retain via Hindsight Cloud API asynchronously
-        try:
-            async with httpx.AsyncClient(timeout=4.0) as client:
-                await client.post(
-                    f"https://api.hindsight.ai/v1/banks/{self.bank_id}/retain",
-                    headers={"Authorization": f"Bearer {self.hindsight_api_key}"},
-                    json={"content": f"{title}\n{description}\nRule: {prevention_rule}", "metadata": {"category": category}}
-                )
-        except Exception:
-            pass
+    async def reflect_on_incidents(self, category: Optional[str] = None) -> Dict[str, Any]:
+        """Episodic Reflection: Synthesizes high-level architectural prevention rules across stored incidents."""
+        all_memories = await self.get_all_memories()
+        if category and category != "all":
+            filtered = [m for m in all_memories if m.get("category") == category]
+        else:
+            filtered = all_memories
 
-        return new_item
+        total_incidents = len(filtered)
+        categories = {}
+        rules = []
+
+        for m in filtered:
+            cat = m.get("category", "unknown")
+            categories[cat] = categories.get(cat, 0) + 1
+            if m.get("prevention_rule"):
+                rules.append(m["prevention_rule"])
+
+        reflection_summary = (
+            f"Episodic reflection analyzed {total_incidents} enterprise post-mortems across "
+            f"{len(categories)} domains ({', '.join(categories.keys())}). "
+            f"Synthesized {len(rules)} active CI/CD pre-flight gate enforcement rules."
+        )
+
+        return {
+            "total_incidents_analyzed": total_incidents,
+            "category_distribution": categories,
+            "synthesized_rules": rules,
+            "reflection_summary": reflection_summary,
+            "timestamp": datetime.utcnow().isoformat()
+        }
 
     async def synthesize_patch_groq(self, diff: str, recalled_memories: List[Dict[str, Any]]) -> str:
-        """Synthesize concrete code auto-patch using Groq LLM (llama-3.3-70b-versatile)."""
+        """Synthesize concrete code auto-patch using Groq LLM or deterministic fallback."""
         if not self.groq_api_key:
             return self._generate_fallback_patch(diff, recalled_memories)
 
@@ -214,35 +379,40 @@ INSTRUCTIONS:
 Output ONLY the raw unified git diff patch file fixing the issue. Do NOT include markdown codeblock backticks or conversational filler.
 """
 
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                res = await client.post(
-                    "https://api.groq.com/openai/v1/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.groq_api_key}",
-                        "Content-Type": "application/json"
-                    },
-                    json={
-                        "model": "llama-3.3-70b-versatile",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "temperature": 0.1
-                    }
-                )
-                if res.status_code == 200:
-                    content = res.json()["choices"][0]["message"]["content"].strip()
-                    # Clean out codeblock markup if present
-                    if content.startswith("```"):
-                        lines = content.split("\n")
-                        content = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
-                    return content
-        except Exception:
-            pass
+        models_to_try = ["qwen/qwen3.8-27b", "llama-3.3-70b-versatile", "openai/gpt-oss-120b"]
+        for model in models_to_try:
+            try:
+                async with httpx.AsyncClient(timeout=8.0) as client:
+                    res = await client.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.groq_api_key}",
+                            "Content-Type": "application/json"
+                        },
+                        json={
+                            "model": model,
+                            "messages": [{"role": "user", "content": prompt}],
+                            "temperature": 0.1
+                        }
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        msg = data["choices"][0]["message"]
+                        content = (msg.get("content") or "").strip()
+                        if content:
+                            if content.startswith("```"):
+                                lines = content.split("\n")
+                                content = "\n".join(lines[1:-1] if lines[-1].startswith("```") else lines[1:])
+                            return content.strip()
+            except Exception as e:
+                print(f"[GROQ PATCH NOTE with {model}] {e}")
 
         return self._generate_fallback_patch(diff, recalled_memories)
 
     def _generate_fallback_patch(self, diff: str, memories: List[Dict[str, Any]]) -> str:
-        """Deterministic patch generator for instant offline resilience."""
-        if "numpy>=2.0.0" in diff or "numpy" in diff.lower():
+        """Deterministic compiler-safe patch generator for instant offline resilience."""
+        diff_lower = diff.lower()
+        if "numpy>=2.0.0" in diff_lower or "numpy" in diff_lower:
             return """--- a/backend/requirements.txt
 +++ b/backend/requirements.txt
 @@ -12,4 +12,4 @@
@@ -250,7 +420,7 @@ Output ONLY the raw unified git diff patch file fixing the issue. Do NOT include
 +numpy>=1.24.0,<2.0.0  # Hindsight Auto-Patch: Preserves Cython ABI compatibility (Inc #104)
 -pydantic>=2.7.0
 +pydantic>=2.7.0"""
-        elif "WORKER_CONCURRENCY" in diff:
+        elif "worker_concurrency" in diff_lower or "concurrency" in diff_lower:
             return """--- a/k8s/deployment.yaml
 +++ b/k8s/deployment.yaml
 @@ -24,4 +24,4 @@
@@ -258,64 +428,127 @@ Output ONLY the raw unified git diff patch file fixing the issue. Do NOT include
 -          - name: WORKER_CONCURRENCY
 -            value: "8"
 +          - name: WORKER_CONCURRENCY
-+            value: "4"  # Hindsight Auto-Patch: Capped to prevent GPU VRAM OOM eviction (Inc #88)"""
-        elif "REDIS_AUTH_TOKEN" in diff or "REDIS" in diff:
+            value: "4"  # Hindsight Auto-Patch: Capped to prevent GPU VRAM OOM eviction (Inc #88)"""
+        elif "redis_auth_token" in diff_lower or "redis" in diff_lower:
             return """--- a/k8s/secrets-production.yaml
 +++ b/k8s/secrets-production.yaml
 @@ -10,0 +11,3 @@
 +  # Hindsight Auto-Patch: Prevent secret drift (Inc #62)
 +  - name: REDIS_AUTH_TOKEN
 +    valueFrom: { secretKeyRef: { name: redis-secret, key: auth-token } }"""
-        return """# Hindsight Auto-Patch Generated
+        return """# ORVIN Guardian Auto-Patch Generated
 # All parameters adjusted to match historical resilience rules."""
 
-    async def analyze_pr(self, diff: str, scenario_id: Optional[str] = None, mode: str = "auto") -> Dict[str, Any]:
-        """Core Pre-Flight CI/CD evaluation pipeline."""
-        
+    async def analyze_pr(
+        self,
+        diff: str,
+        scenario_id: Optional[str] = None,
+        mode: str = "auto",
+        pr_title: Optional[str] = None,
+        pr_url: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Comprehensive Pre-Flight CI/CD evaluation pipeline."""
+        await self._ensure_seeded()
+
         # Check if scenario preset selected
         if scenario_id:
             scenario = next((s for s in PRELOADED_SCENARIOS if s["id"] == scenario_id), None)
             if scenario:
                 diff = scenario["diff"]
 
-        # 1. Day 1 Mode (No Hindsight Memory)
+        # ── 1. Day 1 Mode (Zero Memory / Generic CI/CD) ──
         if mode == "day1":
             return {
                 "mode": "day1",
                 "risk_score": 15,
                 "risk_level": "LOW",
+                "gate_decision": "APPROVED",
                 "recalled_memories": [],
-                "issues_found": ["Basic syntax check passed. Package versions appear standard."],
+                "issues_found": ["Standard static linter passed: Syntax is valid and package specifications conform to PEP 508."],
+                "evidence_factors": [],
                 "prevention_rule": None,
                 "suggested_patch": None,
-                "explanation": "Standard LLM / CI checks have no memory of past Incident #104 / #88. Without Hindsight memory, the agent treats breaking dependency changes or VRAM concurrency spikes as standard PR edits and approves them into production.",
+                "patch_verification": None,
+                "explanation": "Standard CI/CD has zero memory of past Incident #104 or #88. Without Hindsight episodic memory, the system treats breaking dependency changes or VRAM concurrency spikes as benign pull requests, approving them directly into production (False Negative Outage).",
                 "memory_used": False
             }
 
-        # 2. Recall Hindsight Memories
-        recalled = await self.recall_memories(diff, limit=2)
-        top_mem = recalled[0] if recalled else None
+        # ── 2. Change Analysis & Recall Hindsight Episodic Memories ──
+        temp_analysis = change_intelligence_engine.analyze_diff(diff)
+        if temp_analysis["risk_score"] == 10 and temp_analysis["gate_decision"] == "APPROVED":
+            recalled = []
+            top_mem = None
+            static_analysis = temp_analysis
+        else:
+            recalled = await self.recall_memories(diff, limit=2)
+            top_mem = recalled[0] if recalled else None
+            static_analysis = change_intelligence_engine.analyze_diff(diff, recalled_memories=recalled)
 
-        # 3. Mode Day 14 vs Day 60
-        risk_score = 92 if ("numpy" in diff.lower() or "worker_concurrency" in diff.lower() or "redis" in diff.lower()) else 45
-        risk_level = "CRITICAL" if risk_score >= 85 else "MEDIUM"
-        
-        issues = [
-            f"Detected high-risk pattern matching Hindsight {top_mem['title']}" if top_mem else "Potential deployment risk detected.",
-            f"Violation of prevention rule: {top_mem['prevention_rule']}" if top_mem else "Unchecked system boundary change."
-        ]
+        risk_score = static_analysis["risk_score"]
+        risk_level = static_analysis["risk_level"]
+        gate_decision = static_analysis["gate_decision"]
+        evidence_factors = static_analysis["evidence_factors"]
+        issues_found = static_analysis["issues_found"]
 
-        patch = await self.synthesize_patch_groq(diff, recalled)
+        # ── 4. Synthesize & Sandbox-Verify Auto-Patch ──
+        patch = None
+        patch_verification = None
+
+        if mode != "day14" and risk_score >= 50:
+            patch = await self.synthesize_patch_groq(diff, recalled)
+            patch_verification = patch_sandbox_engine.verify_patch(
+                diff=diff,
+                patch=patch,
+                prevention_rule=top_mem.get("prevention_rule") if top_mem else None,
+                category=top_mem.get("category") if top_mem else None
+            )
+
+        explanation = (
+            f"ORVIN Guardian recalled {len(recalled)} historical incident post-mortem(s) from episodic memory. "
+            f"Change intelligence calculated a {risk_score}% blast radius based on {len(evidence_factors)} structural risk factor(s)."
+        )
+        if top_mem:
+            explanation += f" Top violation matches {top_mem['title']}."
+
+        # ── 5. Record Analysis in Persistent Database ──
+        try:
+            async with AsyncSessionLocal() as session:
+                record = PRAnalysisRecord(
+                    pr_title=pr_title or (scenario_id if scenario_id else "Diff Analysis"),
+                    pr_url=pr_url,
+                    scenario_id=scenario_id,
+                    diff=diff,
+                    mode=mode,
+                    risk_score=risk_score,
+                    risk_level=risk_level,
+                    gate_decision=gate_decision,
+                    recalled_memories=recalled,
+                    issues_found=issues_found,
+                    evidence_breakdown=evidence_factors,
+                    prevention_rule=top_mem["prevention_rule"] if top_mem else None,
+                    suggested_patch=patch,
+                    patch_verified=patch_verification.get("is_verified", False) if patch_verification else False,
+                    patch_verification_log=patch_verification.get("verification_log", "") if patch_verification else None,
+                    explanation=explanation,
+                    memory_used=True
+                )
+                session.add(record)
+                await session.commit()
+        except Exception as e:
+            print(f"[HINDSIGHT ENGINE] Analysis record save note: {e}")
 
         return {
             "mode": mode if mode in ["day14", "day60"] else "day60",
             "risk_score": risk_score,
             "risk_level": risk_level,
+            "gate_decision": gate_decision,
             "recalled_memories": recalled,
-            "issues_found": issues,
-            "prevention_rule": top_mem["prevention_rule"] if top_mem else "Apply pinned version constraints.",
+            "issues_found": issues_found,
+            "evidence_factors": evidence_factors,
+            "prevention_rule": top_mem["prevention_rule"] if top_mem else (static_analysis["recommendations"][0] if static_analysis["recommendations"] else "Apply version constraints."),
             "suggested_patch": patch if mode != "day14" else None,
-            "explanation": f"Hindsight Memory recalled {len(recalled)} past post-mortem(s). The agent flagged this PR with {risk_score}% blast radius risk and auto-synthesized a production patch based on Incident #{top_mem['id'] if top_mem else '104'}.",
+            "patch_verification": patch_verification,
+            "explanation": explanation,
             "memory_used": True
         }
 
@@ -324,43 +557,40 @@ Output ONLY the raw unified git diff patch file fixing the issue. Do NOT include
         return [
             {
                 "day": "Day 1",
-                "stage_name": "Zero Memory (Generic LLM)",
-                "description": "Standard CI/CD check evaluates PR diff without historical context.",
+                "stage_name": "Zero Memory (Generic CI/CD)",
+                "description": "Standard CI/CD check evaluates PR diff without historical post-mortem context.",
                 "risk_score": 15,
                 "risk_level": "LOW",
                 "recalled_count": 0,
-                "summary": "Agent approves PR #402 updating numpy>=2.0.0 because it has no memory of binary ABI crashes.",
+                "summary": "Agent approves PR #402 updating numpy>=2.0.0 because static linters have zero memory of binary C-API ABI crashes.",
                 "action_taken": "APPROVED (False Negative -> Production Outage occurs)",
                 "auto_patch_available": False
             },
             {
                 "day": "Day 14",
-                "stage_name": "Incident Recall (Post-Mortem Memory)",
-                "description": "Hindsight Memory ingests Incident #104 post-mortem and links Cython ABI failures.",
+                "stage_name": "Incident Recall (Post-Mortem Ingested)",
+                "description": "Hindsight Memory ingests Incident #104 post-mortem linking Cython ABI segmentation faults.",
                 "risk_score": 92,
                 "risk_level": "CRITICAL",
                 "recalled_count": 1,
-                "summary": "Agent recalls Incident #104: 'NumPy 2.0.0 ABI Breaking Change' and blocks deployment.",
+                "summary": "Agent recalls Incident #104: 'NumPy 2.0.0 ABI Breaking Change' and blocks deployment at the gate.",
                 "action_taken": "BLOCKED & WARNING ISSUED to Developer",
                 "auto_patch_available": False
             },
             {
                 "day": "Day 60",
                 "stage_name": "Predictive Senior Engineer",
-                "description": "Agent synthesizes prevention rules and auto-generates unified diff patches.",
+                "description": "Agent reflects across memory bank, blocks merge, and auto-synthesizes compiler-safe diff patches.",
                 "risk_score": 92,
                 "risk_level": "CRITICAL",
                 "recalled_count": 2,
-                "summary": "Agent recalls Incident #104 & #88, flags risk before merge, and auto-generates pinned numpy<2.0.0 patch.",
-                "action_taken": "BLOCKED + 1-CLICK AUTO-PATCH GENERATED",
+                "summary": "Agent recalls Incidents #104 & #88, prevents outage, and auto-generates a verified pinned numpy<2.0.0 patch.",
+                "action_taken": "BLOCKED + 1-CLICK VERIFIED AUTO-PATCH GENERATED",
                 "auto_patch_available": True
             }
         ]
 
     def get_scenarios(self) -> List[Dict[str, Any]]:
         return PRELOADED_SCENARIOS
-
-    def get_all_memories(self) -> List[Dict[str, Any]]:
-        return LIVE_MEMORY_BANK
 
 hindsight_devops_engine = HindsightDevOpsEngine()

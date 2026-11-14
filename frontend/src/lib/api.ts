@@ -41,7 +41,9 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}): Promise<an
     token = localStorage.getItem('token');
   }
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    'x-demo-mode': 'true',
+  };
 
   if (!(options.body instanceof FormData)) {
     headers['Content-Type'] = 'application/json';
@@ -99,7 +101,9 @@ async function downloadFile(endpoint: string, filename: string): Promise<void> {
     token = localStorage.getItem('token');
   }
 
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = {
+    'x-demo-mode': 'true',
+  };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
   }

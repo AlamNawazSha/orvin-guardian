@@ -23,3 +23,6 @@ aiosqlite
 google-genai
 openpyxl
 xlrd
+hindsight-client
+pyyaml
+pytest

@@ -1,27 +1,24 @@
-# Orvin AI — Autonomous Pre-Flight Gate & Enterprise AutoMLOps Platform
+# ORVIN Guardian — Memory-Powered Engineering Risk Intelligence & CI/CD Pre-Flight Gate
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-brightgreen.svg)](https://python.org)
 [![Next.js 14](https://img.shields.io/badge/Next.js-14.1.0-black.svg)](https://nextjs.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-teal.svg)](https://fastapi.tiangolo.com)
+[![Hindsight Memory](https://img.shields.io/badge/Memory-Vectorize%20Hindsight-purple.svg)](https://hindsight.vectorize.io/)
 [![Groq Llama 3.3](https://img.shields.io/badge/LLM-Groq%20Llama%203.3%2070B-orange.svg)](https://groq.com)
 
-**Orvin AI** is a production-grade autonomous pre-flight CI/CD gate and machine learning operations platform. Powered by **Hindsight Episodic Memory** (Retain, Recall, Reflect) and **Groq Llama 3.3 70B**, Orvin prevents catastrophic production outages, ABI dependency mismatches, and GPU memory overcommit before code is merged.
+> **"Don't just review the code. Remember what went wrong before."**
+
+**ORVIN Guardian** is an autonomous engineering risk intelligence agent and pre-flight CI/CD gate powered by **Vectorize Hindsight Episodic Memory (Retain, Recall, Reflect)** and **Groq Llama 3.3 70B**. It intercepts catastrophic production outages, ABI dependency mismatches, GPU memory overcommits, and secret drift before pull requests are merged.
 
 ---
 
-## 🛡️ Why Orvin?
+## 🛡️ The Problem: CI/CD Amnesia
 
-> **"Orvin"** originates from the Old English / Anglo-Saxon root *Ordwine* (compounded from *ord* = "spearpoint / forefront" and *wine* = "friend / protector"), translating to **"Friend of the Vanguard"** or **"Courageous Guardian"**.
-
-In modern enterprise software and machine learning systems:
-- **The Amnesia Problem**: CI/CD pipelines evaluate pull requests and configuration manifests in isolation. They have zero memory of yesterday's outages. Teams repeatedly suffer from the same recurring dependency collisions (e.g., NumPy 2.0 C-API ABI breakage in Cython extensions), GPU VRAM evictions, and staging-vs-production config drift.
-- **The Orvin Guardian**: Just as a vanguard protector stands at the frontlines, **Orvin** guards the boundary between developer pull requests and production deployment. By giving CI/CD pipelines **episodic memory**, Orvin remembers every past incident post-mortem, semantic stack trace, and applied remedy.
-- **Proactive Auto-Remediation**: When a high-risk change is detected, Orvin doesn't just block the PR—it autonomously synthesizes a compiler-safe, verified unified git `.patch` in seconds to unblock engineers safely.
-
-<p align="center">
-  <img src="assets/orvin_preflight_gate.png" alt="Orvin AI Pre-Flight Gate & Auto Patch Synthesis" width="100%" />
-</p>
+In modern software and machine learning engineering:
+- **Stateless CI/CD**: Standard deployment gates test syntax and unit tests in isolation. They have zero memory of past outages.
+- **Recurring Disasters**: Engineering teams spend hours debugging an outage (e.g. NumPy 2.0 C-API ABI mismatch breaking compiled Cython extensions), write an extensive post-mortem, and weeks later another developer innocently submits a similar change and triggers the exact same failure.
+- **The ORVIN Solution**: By embedding **persistent episodic memory**, ORVIN Guardian remembers every past post-mortem, failure trace, and remediation rule. It calculates an evidence-based blast radius and automatically generates verified, compiler-safe unified git `.patch` files in seconds.
 
 ---
 
@@ -29,64 +26,65 @@ In modern enterprise software and machine learning systems:
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                              ORVIN AI                                  │
-│              Autonomous Pre-Flight Gate & MLOps Engine                 │
+│                             ORVIN GUARDIAN                             │
+│       Memory-Powered Pre-Flight CI/CD Gate & Risk Intelligence         │
 └───────────────────────────────────┬────────────────────────────────────┘
                                     │
     ┌───────────────────────────────┼───────────────────────────────┐
     ▼                               ▼                               ▼
 ┌─────────────────────────┐ ┌─────────────────────────┐ ┌─────────────────────────┐
-│  DevOps Pre-Flight Gate │ │   AutoML & Modeling     │ │  Governance & Sizing    │
+│   Episodic Memory Bank  │ │ Change Intelligence Engine│ │ Isolated Patch Sandbox  │
 ├─────────────────────────┤ ├─────────────────────────┤ ├─────────────────────────┤
-│ • PR Ingestion & Diffs  │ │ • 8+ Model Architectures│ │ • SHAP Explainability   │
-│ • Hindsight Memory Recall│ │ • 5-Fold Cross-Valid.   │ │ • Cloud Hardware Sizing │
-│ • Llama 3.3 Auto-Patch  │ │ • AI Feature Engineering│ │ • Carbon (CO2) Modeling │
-│ • Blast Radius Scoring  │ │ • Automated Data Clean  │ │ • FastAPI / Docker Gen  │
+│ • Vectorize Hindsight   │ │ • Dependency SemVer ABI │ │ • Unified Diff Syntax   │
+│ • Persistent DB Store   │ │ • GPU / VRAM Overcommit │ │ • Python AST Parse      │
+│ • Hybrid Semantic Recall│ │ • Secret & Config Drift │ │ • YAML Indentation Test │
+│ • Cross-Cluster Reflect │ │ • Database Migration AST│ │ • Prevention Rule Check │
 └─────────────────────────┘ └─────────────────────────┘ └─────────────────────────┘
 ```
 
-### 1. Autonomous Pre-Flight CI/CD Gate
-- **Episodic Reflection (Retain, Recall, Reflect)**: Intercepts pull requests, manifests, and Dockerfiles to calculate blast-radius risk scores ($0\text{--}100\%$).
-- **Instant Git Patch Generation**: Auto-synthesizes tested unified git patches using Groq Llama 3.3 70B.
-- **Pre-Loaded Memory Banks**: Ready-to-demo incident memories including NumPy 2.0 ABI clashes, CUDA GPU OOM evictions, and Redis secret drifts.
+### 1. Vectorize Hindsight Memory (Retain, Recall, Reflect)
+- **Retain**: Ingests production failure traces and post-mortems via the official `hindsight-client` Python SDK into persistent storage.
+- **Recall**: Queries multi-strategy hybrid memory with strict relevance thresholds (>0.65) to eliminate false associations.
+- **Reflect**: Synthesizes enterprise-wide prevention guidelines from cluster analysis across stored incidents.
 
-<p align="center">
-  <img src="assets/orvin_story_mode.png" alt="Orvin AI Story Mode & Episodic Reflection" width="100%" />
-</p>
+### 2. Deterministic Change Intelligence Engine
+- Static AST and SemVer analysis calculates an evidence-based blast radius score ($0\text{--}100\%$) itemizing critical risk factors.
+- Detects NumPy 2.0+ ABI incompatibilities, Kubernetes worker concurrency spikes (>4 workers causing GPU VRAM OOM evictions), undeclared production secrets, and destructive SQL schema drops.
 
-### 2. Multi-Model AutoML Studio
-- Parallel training and benchmarking across 8+ algorithms (Random Forest, XGBoost, LightGBM, Gradient Boosting, Ridge, Logistic Regression, etc.).
-- Automated 5-fold cross-validation, Bayesian hyperparameter optimization, and leaderboard ranking.
+### 3. Isolated Patch Sandbox Verification
+- Proposed AI auto-patches are validated in a sandbox using Python AST parsing (`ast.parse`) and YAML structure checking to ensure they compile cleanly and satisfy prevention rules before presentation.
 
-### 3. Dataset Intelligence & Progressive Lineage
-- Automated statistical profiling, anomaly detection, missing value imputation, and outlier capping.
-- Strict SHA-256 data fingerprinting and immutable lineage graphs with instant pipeline rollback.
+### 4. Live GitHub PR Ingestion & Webhook Gating
+- Analyze live GitHub PR diffs directly by URL (`https://github.com/owner/repo/pull/123`).
+- Listens on `POST /api/v1/devops-agent/github/webhook` to post automated GitHub Markdown review comments and commit status checks (`SUCCESS` vs `FAILURE`).
 
-### 4. Explainable AI (XAI) & Governance
-- Global and local SHAP feature attributions, confusion matrices, and ROC/AUC curves.
-- Spider radar readiness scoring and automated production deployment certificates.
-
-### 5. Multi-Cloud Hardware & Carbon Footprint Sizing
-- Hardware instance recommendations (CPU/GPU tiers) across Azure, AWS, and GCP.
-- Real-time SLA latency estimations, monthly cost forecasting, and carbon footprint ($\text{kg CO}_2\text{e}$) sustainability modeling.
+### 5. Interactive "Memory Evolution" Story Mode
+- Live A/B toggle between **"Generic CI/CD (No Memory)"** (False Negative Outage) and **"ORVIN Guardian (Episodic Memory)"** (Interception + Auto-Patch).
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Python 3.11+
+- Python 3.11+ (Python 3.13 supported)
 - Node.js 18+ & npm
 
 ### 1. Backend Setup
 ```bash
 cd backend
 python -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
+
+# On Windows:
+.venv\Scripts\activate
+# On Linux/macOS:
+source .venv/bin/activate
+
 pip install -r requirements.txt
-python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+pip install hindsight-client
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-- **API Documentation (Swagger)**: `http://localhost:8000/docs`
+- **API Documentation (Swagger UI)**: `http://localhost:8000/docs`
+- **Health Check**: `http://localhost:8000/health`
 
 ### 2. Frontend Setup
 ```bash
@@ -94,8 +92,14 @@ cd frontend
 npm install
 npm run dev
 ```
-- **Web Application**: `http://localhost:3000`
-- **Pre-Flight Gate Simulator**: `http://localhost:3000/projects/proj-eqs1yte/devops-agent`
+- **Web Console**: `http://localhost:3000`
+- **ORVIN Guardian Pre-Flight Gate**: `http://localhost:3000/projects/p-101/devops-agent`
+
+### 3. Run Automated Verification Suite
+To verify database persistence, deterministic risk analysis, memory recall, and patch sandbox checks:
+```bash
+python backend/test_orvin_guardian.py
+```
 
 ---
 
@@ -103,12 +107,13 @@ npm run dev
 
 | Layer | Technology |
 |---|---|
-| **Frontend** | Next.js 14 (App Router), TypeScript, Tailwind CSS, Lucide Icons, Plotly.js |
-| **Backend API** | FastAPI, Python 3.11, Pydantic v2, SQLAlchemy, Uvicorn |
-| **Episodic Memory** | Hindsight Memory SDK (`devops_postmortems_bank`) |
-| **LLM Reasoning Engine** | Groq API (`llama-3.3-70b-versatile`) |
-| **Machine Learning** | Scikit-Learn, LightGBM, XGBoost, SHAP, NumPy, Pandas |
-| **Design System** | Microsoft Light Cream Palette (`#FAF7F2` canvas, `#FFFDF9` surfaces, `#0F172A` slate typography) |
+| **Episodic Memory** | Vectorize Hindsight Client (`hindsight-client`), Persistent SQLite / PostgreSQL |
+| **Change Intelligence** | Python AST, SemVer analysis, Regex pattern engines |
+| **Patch Validation** | Isolated Sandbox Runner (`ast.parse`, `pyyaml`) |
+| **LLM Reasoning** | Groq API (`llama-3.3-70b-versatile`) / Gemini API |
+| **Backend API** | FastAPI, SQLAlchemy AsyncIO, Pydantic v2, Uvicorn |
+| **Frontend UI** | Next.js 14 (App Router), TypeScript, Tailwind CSS, Lucide Icons |
+| **Design System** | Microsoft Light Cream Palette (`#FAF7F2` canvas, `#FFFDF9` surfaces, `#0F172A` slate) |
 
 ---
 

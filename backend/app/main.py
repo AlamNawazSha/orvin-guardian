@@ -15,11 +15,21 @@ import traceback
 try:
     from app.config import settings
     from app.database import init_db
-    from app.routers import auth, projects, datasets, analysis, cleaning, features, training, explain, api_gen, assistant, decision, simulator, self_healing, cost_carbon, readiness, experiments, version_lineage, devops_agent
+    from app.routers import (
+        auth, projects, datasets, analysis, cleaning, features,
+        training, explain, api_gen, assistant, decision, simulator,
+        self_healing, cost_carbon, readiness, experiments,
+        version_lineage, devops_agent
+    )
 except (ImportError, ModuleNotFoundError):
     from .config import settings  # type: ignore
     from .database import init_db  # type: ignore
-    from .routers import auth, projects, datasets, analysis, cleaning, features, training, explain, api_gen, assistant, decision, simulator, self_healing, cost_carbon, readiness, experiments, version_lineage, devops_agent  # type: ignore
+    from .routers import (  # type: ignore
+        auth, projects, datasets, analysis, cleaning, features,
+        training, explain, api_gen, assistant, decision, simulator,
+        self_healing, cost_carbon, readiness, experiments,
+        version_lineage, devops_agent
+    )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,16 +44,28 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(
-    title="AutoMLOps Platform API",
-    description="Backend API for the AutoMLOps Platform",
-    version="1.0.0",
+    title="ORVIN Guardian — Pre-Flight CI/CD Gate & Memory Engine",
+    description="Persistent Memory Engineering Intelligence Agent that intercepts production outages before merge.",
+    version="2.0.0",
     lifespan=lifespan
 )
 
-# Open CORS middleware allowing local development, Render, and Vercel domains
+# Standardized, secure CORS middleware
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
+]
+if hasattr(settings, "CORS_ORIGINS") and settings.CORS_ORIGINS:
+    for o in settings.CORS_ORIGINS:
+        if o not in allowed_origins and o != "*":
+            allowed_origins.append(o)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|.*\.vercel\.app|.*\.onrender\.com)(:[0-9]+)?$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -53,9 +75,10 @@ app.add_middleware(
 async def global_exception_handler(request: Request, exc: Exception):
     print(f"[API ERROR] 500 on {request.method} {request.url.path}: {exc}")
     traceback.print_exc()
+    error_msg = str(exc) if getattr(settings, "DEBUG", True) else "Internal Server Error"
     return JSONResponse(
         status_code=500,
-        content={"detail": f"Internal Server Error: {str(exc)}"}
+        content={"detail": error_msg}
     )
 
 # Dual-mount all routers at both /api/v1 and /api for zero-configuration URL compatibility
@@ -73,14 +96,19 @@ for pfx in ["/api/v1", "/api"]:
 
 @app.get("/health")
 async def health_check():
-    return {"status": "ok"}
+    return {
+        "status": "healthy",
+        "service": "ORVIN Guardian",
+        "engine": "Hindsight Episodic Memory + Change Intelligence"
+    }
 
 @app.get("/")
 async def root():
     return {
-        "app": "AutoMLOps API",
-        "version": "1.0.1",
-        "build": "2026-08-23-production-ready",
+        "app": "ORVIN Guardian",
+        "tagline": "Don't just review the code. Remember what went wrong before.",
+        "version": "2.0.0",
+        "build": "2026-hackathon-champion-ready",
         "status": "healthy",
         "docs": "/docs"
     }
