@@ -41,12 +41,15 @@ async def get_current_user(
     )
 
     demo_header = request.headers.get("x-demo-mode", "").lower()
-    is_demo_eligible = bool(settings.DEBUG or demo_header in ["true", "1", "yes"])
+    is_demo_eligible = demo_header in ["true", "1", "yes"]
 
-    if not token or token in ["demo-session-token", "demo-token"]:
+    if not token:
         if is_demo_eligible:
             return await get_or_create_demo_user(db)
         raise credentials_exception
+
+    if token in ["demo-session-token", "demo-token"]:
+        return await get_or_create_demo_user(db)
 
     payload = decode_access_token(token)
     if payload is None:

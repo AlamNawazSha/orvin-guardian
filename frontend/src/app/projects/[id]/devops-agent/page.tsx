@@ -5,10 +5,11 @@ import { RiskGauge } from '@/components/devops/RiskGauge';
 import { StoryModeStepper } from '@/components/devops/StoryModeStepper';
 import { MemoryBankViewer } from '@/components/devops/MemoryBankViewer';
 import { IncidentDiffViewer } from '@/components/devops/IncidentDiffViewer';
+import { ImmuneSystemViewer } from '@/components/devops/ImmuneSystemViewer';
 import { 
   BrainCircuit, ShieldAlert, Sparkles, Play, RefreshCw, 
   PlusCircle, Database, CheckCircle2, Layers, Zap, GitPullRequest,
-  AlertTriangle, ShieldCheck, ArrowRight, Eye, Code, Terminal
+  AlertTriangle, ShieldCheck, ArrowRight, Eye, Code, Terminal, Dna
 } from 'lucide-react';
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
@@ -17,7 +18,7 @@ export default function DevOpsAgentPage() {
   const params = useParams();
   const projectId = (params?.id as string) || 'p-101';
 
-  const [activeTab, setActiveTab] = useState<'story' | 'inspector' | 'github' | 'memory_bank' | 'retain'>('story');
+  const [activeTab, setActiveTab] = useState<'story' | 'inspector' | 'immune_system' | 'github' | 'memory_bank' | 'retain'>('story');
   
   // Story Mode State
   const [storySteps, setStorySteps] = useState<any[]>([]);
@@ -262,6 +263,17 @@ export default function DevOpsAgentPage() {
           >
             <Layers className="w-3.5 h-3.5" />
             PR Inspector
+          </button>
+          <button
+            onClick={() => setActiveTab('immune_system')}
+            className={`px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              activeTab === 'immune_system'
+                ? 'bg-[#0F172A] text-white shadow-md border border-indigo-500/40'
+                : 'text-[#4B5563] hover:text-[#111827] hover:bg-[#EFEBE0]'
+            }`}
+          >
+            <Dna className="w-3.5 h-3.5 text-indigo-400" />
+            Immune System
           </button>
           <button
             onClick={() => setActiveTab('github')}
@@ -764,6 +776,11 @@ export default function DevOpsAgentPage() {
             </button>
           </form>
         </div>
+      )}
+
+      {/* ── TAB 6: SOFTWARE IMMUNE SYSTEM (CROSS-SERVICE ANTIBODY PROPAGATION) ── */}
+      {activeTab === 'immune_system' && (
+        <ImmuneSystemViewer apiBaseUrl={API_BASE_URL} />
       )}
     </div>
   );

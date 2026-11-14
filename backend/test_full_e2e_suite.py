@@ -45,6 +45,15 @@ class TestSuiteRunner:
             # SECTION 1: HEALTH & SYSTEM STATUS
             # ─────────────────────────────────────────────────────────────
             print("\n[SECTION 1: Core System & Health Verification]")
+            import time
+            for _ in range(5):
+                try:
+                    r = client.get(f"{BASE_URL}/health")
+                    if r.status_code == 200:
+                        break
+                except Exception:
+                    time.sleep(1)
+
             try:
                 r = client.get(f"{BASE_URL}/health")
                 self.assert_test("Backend Health Endpoint", r.status_code == 200, f"Status: {r.status_code}")
@@ -373,6 +382,37 @@ class TestSuiteRunner:
                 self.assert_test("Supersede Incident Lineage Updated (200)", r.status_code == 200 and res.get("status") == "superseded")
             except Exception as e:
                 self.assert_test("Architectural Policy Supersession", False, str(e))
+
+            # ─────────────────────────────────────────────────────────────
+            # SECTION 11: SOFTWARE IMMUNE SYSTEM (CROSS-SERVICE ANTIBODIES)
+            # ─────────────────────────────────────────────────────────────
+            print("\n[SECTION 11: Software Immune System & Fleet Antibody Propagation]")
+            try:
+                r = client.get(f"{BASE_URL}/api/v1/devops-agent/immune-system/fleet-status")
+                self.assert_test("Immune Fleet Status Endpoint (200)", r.status_code == 200)
+                f_data = r.json()
+                self.assert_test("Fleet Immunity Score Present", "fleet_immunity_score" in f_data)
+                self.assert_test("Sibling Microservices Registered", len(f_data.get("services", [])) >= 5)
+                self.assert_test("Architectural Antibodies Synthesized", len(f_data.get("antibodies", [])) >= 2)
+            except Exception as e:
+                self.assert_test("Immune Fleet Status Endpoint", False, str(e))
+
+            try:
+                r = client.post(f"{BASE_URL}/api/v1/devops-agent/immune-system/scan-fleet")
+                self.assert_test("Immune Fleet Autonomous Scan (200)", r.status_code == 200)
+                scan_data = r.json()
+                self.assert_test("Fleet Telemetry Refreshed", scan_data.get("total_services") > 0)
+            except Exception as e:
+                self.assert_test("Immune Fleet Autonomous Scan", False, str(e))
+
+            try:
+                r = client.post(f"{BASE_URL}/api/v1/devops-agent/immune-system/propagate-antibody", json={})
+                self.assert_test("Preemptive Antibody Propagation (200)", r.status_code == 200)
+                prop_res = r.json()
+                self.assert_test("Autonomous Vaccination PRs Merged", prop_res.get("success") is True)
+                self.assert_test("Fleet Immunity Achieves 100% Protection", prop_res.get("new_fleet_immunity_score") == 100.0)
+            except Exception as e:
+                self.assert_test("Preemptive Antibody Propagation", False, str(e))
 
         # ─────────────────────────────────────────────────────────────
         # SUMMARY REPORT

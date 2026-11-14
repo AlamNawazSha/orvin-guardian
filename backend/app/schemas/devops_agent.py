@@ -129,3 +129,8 @@ class VerifyCustomPatchRequest(BaseModel):
     patch: str
     prevention_rule: Optional[str] = None
     category: Optional[str] = None
+
+class PropagateAntibodyRequest(BaseModel):
+    service_id: Optional[str] = Field(None, description="Specific service ID to vaccinate, or None to vaccinate all vulnerable services")
+    antibody_id: Optional[str] = Field(None, description="Specific antibody ID to propagate, or None to match automatically")
+

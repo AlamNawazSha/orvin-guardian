@@ -17,10 +17,12 @@ from app.schemas.devops_agent import (
     VerifyCustomPatchRequest,
     DraftIncidentFromLogsRequest,
     DraftIncidentFromLogsResponse,
-    SupersedeIncidentRequest
+    SupersedeIncidentRequest,
+    PropagateAntibodyRequest
 )
 from app.engines.hindsight_devops_engine import hindsight_devops_engine
 from app.engines.patch_sandbox_engine import patch_sandbox_engine
+from app.engines.immune_system_engine import software_immune_system
 
 router = APIRouter(prefix="/devops-agent", tags=["ORVIN Guardian (DevOps Gate & Memory)"])
 
@@ -269,3 +271,34 @@ async def compare_memory_ab(request: PRAnalysisRequest):
         return res
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Controlled comparison failed: {str(e)}")
+
+# ─────────────────────────────────────────────────────────────
+# Software Immune System: Cross-Service Antibody Propagation
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/immune-system/fleet-status")
+async def get_immune_system_fleet_status():
+    """Retrieve the global microservice fleet immunity status, active antibodies, and vulnerability index."""
+    try:
+        return await software_immune_system.get_fleet_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Immune system status retrieval failed: {str(e)}")
+
+@router.post("/immune-system/scan-fleet")
+async def scan_immune_system_fleet():
+    """Trigger an autonomous cross-service scan of all sibling microservices against active memory antibodies."""
+    try:
+        return await software_immune_system.scan_fleet()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Immune fleet scan failed: {str(e)}")
+
+@router.post("/immune-system/propagate-antibody")
+async def propagate_antibody(request: PropagateAntibodyRequest):
+    """Preemptively deploy antibody vaccination patches across vulnerable sibling microservices."""
+    try:
+        return await software_immune_system.propagate_antibody(
+            service_id=request.service_id,
+            antibody_id=request.antibody_id
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Antibody propagation failed: {str(e)}")
