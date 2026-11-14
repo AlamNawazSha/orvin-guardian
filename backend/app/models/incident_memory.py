@@ -16,6 +16,12 @@ class IncidentMemory(Base):
     stack_trace = Column(Text, nullable=True)
     prevention_rule = Column(Text, nullable=False)
     affected_service = Column(String, default="ml-inference-service")
+    environment = Column(String, default="production")  # production, staging, development, all
+    status = Column(String, default="active")  # active, superseded, retired
+    superseded_by = Column(String, nullable=True)
+    retirement_reason = Column(Text, nullable=True)
+    failed_fixes = Column(Text, nullable=True)  # JSON-encoded list of unsuccessful remedy attempts to avoid
+    max_workers = Column(Integer, nullable=True)  # Hardware-tested concurrency bound if applicable
     recall_score = Column(Float, default=0.95)
     recall_count = Column(Integer, default=0)
     source = Column(String, default="enterprise_postmortem")  # enterprise_postmortem, github_pr, manual_retention

@@ -14,6 +14,9 @@ interface MemoryItem {
   severity: string;
   recall_score?: number;
   source?: string;
+  failed_fixes?: string[];
+  status?: string;
+  superseded_by?: string;
 }
 
 interface MemoryBankViewerProps {
@@ -152,6 +155,11 @@ export function MemoryBankViewer({ memories }: MemoryBankViewerProps) {
                     <span className="text-[10px] text-slate-500 font-mono">
                       [{item.source || 'Persistent Database'}]
                     </span>
+                    {item.status === 'superseded' && (
+                      <span className="text-[9px] uppercase font-bold px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-300">
+                        Superseded
+                      </span>
+                    )}
                   </div>
                   <h4 className="font-bold text-sm text-[#1C1917]">{item.title}</h4>
                 </div>
@@ -166,6 +174,19 @@ export function MemoryBankViewer({ memories }: MemoryBankViewerProps) {
               <p className="text-xs text-[#44403C] leading-relaxed bg-[#FFFDF9] p-2.5 rounded-lg border border-[#E8E2D5]">
                 {item.summary}
               </p>
+
+              {item.failed_fixes && item.failed_fixes.length > 0 && (
+                <div className="bg-rose-50 border border-rose-200 rounded-lg p-2.5 text-xs text-rose-900 space-y-1">
+                  <div className="font-bold text-rose-950 flex items-center gap-1">
+                    <span>⚠️ Unsuccessful Remedies (Do Not Repeat):</span>
+                  </div>
+                  <ul className="list-disc pl-4 space-y-0.5 text-[11px] text-rose-800">
+                    {item.failed_fixes.map((ff, idx) => (
+                      <li key={idx}>{ff}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               <div className="flex items-center gap-2 text-xs text-emerald-900 font-medium bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
                 <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-700" />

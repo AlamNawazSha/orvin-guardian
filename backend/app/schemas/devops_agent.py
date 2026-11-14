@@ -7,14 +7,19 @@ class PRAnalysisRequest(BaseModel):
     mode: str = Field("auto", description="Execution mode: 'day1' (no memory), 'day14' (recall), 'day60' (reflect & patch)")
     pr_title: Optional[str] = Field(None, description="Optional PR title")
     pr_url: Optional[str] = Field(None, description="Optional GitHub PR URL")
+    service: Optional[str] = Field("ml-inference-service", description="Target service scope")
+    environment: Optional[str] = Field("production", description="Target environment (production, staging, etc.)")
 
 class IncidentRetentionRequest(BaseModel):
     title: str = Field(..., description="Short incident summary or post-mortem title")
     description: str = Field(..., description="Detailed failure description, stack trace, or root cause")
-    category: str = Field("dependency", description="Category: dependency, hardware_oom, secret_drift, runtime_crash, schema_migration")
+    category: str = Field("dependency", description="Category: dependency, hardware_oom, secret_drift, runtime_crash, schema_migration, concurrency")
     prevention_rule: str = Field(..., description="Synthesized rule or patch guideline")
     service: Optional[str] = Field("ml-inference-service", description="Affected microservice or component")
+    environment: Optional[str] = Field("production", description="Affected environment")
     severity: Optional[str] = Field("HIGH", description="CRITICAL, HIGH, MEDIUM, LOW")
+    failed_fixes: Optional[List[str]] = Field(default_factory=list, description="Remedies that were attempted and FAILED during the incident")
+    max_workers: Optional[int] = Field(None, description="Hardware-tested concurrency bound if applicable")
 
 class MemoryItem(BaseModel):
     id: str
@@ -26,6 +31,11 @@ class MemoryItem(BaseModel):
     severity: str = "HIGH"
     recall_score: Optional[float] = 0.95
     affected_service: Optional[str] = None
+    environment: Optional[str] = "production"
+    status: Optional[str] = "active"
+    superseded_by: Optional[str] = None
+    failed_fixes: Optional[List[str]] = Field(default_factory=list)
+    max_workers: Optional[int] = None
     source: Optional[str] = None
 
 class EvidenceFactor(BaseModel):
@@ -49,6 +59,8 @@ class PRAnalysisResponse(BaseModel):
     risk_level: str = Field(..., description="LOW, MEDIUM, HIGH, CRITICAL")
     gate_decision: Optional[str] = Field("BLOCKED", description="APPROVED, BLOCKED, WARNING, REQUIRES_CHANGES")
     recalled_memories: List[MemoryItem] = []
+    rejected_memories: Optional[List[Dict[str, Any]]] = Field(default_factory=list, description="Memories considered but rejected (e.g. wrong service/env or superseded)")
+    failed_fixes_warned: Optional[List[str]] = Field(default_factory=list, description="Historical remediation attempts that FAILED in recalled incidents")
     issues_found: List[str] = []
     evidence_factors: List[Dict[str, Any]] = []
     prevention_rule: Optional[str] = None
@@ -56,6 +68,30 @@ class PRAnalysisResponse(BaseModel):
     patch_verification: Optional[Dict[str, Any]] = None
     explanation: str
     memory_used: bool
+
+class DraftIncidentFromLogsRequest(BaseModel):
+    logs: str = Field(..., description="Raw failure logs, error traces, or terminal output")
+    service: Optional[str] = Field("ml-inference-service", description="Service where failure occurred")
+    environment: Optional[str] = Field("production", description="Environment where failure occurred")
+
+class DraftIncidentFromLogsResponse(BaseModel):
+    title: str
+    description: str
+    root_cause: str
+    prevention: str
+    category: str
+    failed_fixes: List[str] = []
+    service: str
+    environment: str
+    status: str = "draft"
+    notice: str
+
+class SupersedeIncidentRequest(BaseModel):
+    old_incident_id: str = Field(..., description="ID of incident being superseded")
+    new_title: str
+    new_prevention_rule: str
+    new_max_workers: Optional[int] = None
+    reason: str = Field(..., description="Reason for superseding (e.g., infrastructure upgrade)")
 
 class StoryModeStep(BaseModel):
     day: str

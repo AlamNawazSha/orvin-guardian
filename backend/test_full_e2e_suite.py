@@ -312,16 +312,67 @@ class TestSuiteRunner:
             # ─────────────────────────────────────────────────────────────
             print("\n[SECTION 9: Frontend Next.js Runtime Verification]")
             try:
-                r = client.get(FRONTEND_URL)
+                r = client.get(FRONTEND_URL, timeout=15.0)
                 self.assert_test("Frontend Landing Page Responds 200", r.status_code == 200)
 
-                r_gate = client.get(f"{FRONTEND_URL}/projects/p-101/devops-agent")
+                r_gate = client.get(f"{FRONTEND_URL}/projects/p-101/devops-agent", timeout=15.0)
                 self.assert_test("Frontend DevOps Agent Console Responds 200", r_gate.status_code == 200)
 
-                r_dash = client.get(f"{FRONTEND_URL}/dashboard")
+                r_dash = client.get(f"{FRONTEND_URL}/dashboard", timeout=15.0)
                 self.assert_test("Frontend Dashboard Responds 200", r_dash.status_code == 200)
             except Exception as e:
                 self.assert_test("Frontend Runtime Verification", False, str(e))
+
+            # ─────────────────────────────────────────────────────────────
+            # SECTION 10: ADVANCED RELIABILITY & FAILED-FIX EXPERIENCE
+            # ─────────────────────────────────────────────────────────────
+            print("\n[SECTION 10: Advanced Reliability & Failed-Fix Features]")
+            # Test Case 10.1: Failed Historical Remedies Tracked
+            try:
+                r = client.get(f"{BASE_URL}/api/v1/devops-agent/memories")
+                mems = r.json()
+                has_failed_fixes = any(bool(m.get("failed_fixes")) for m in mems)
+                self.assert_test("Failed Historical Fixes Recorded in Memories", has_failed_fixes)
+            except Exception as e:
+                self.assert_test("Failed Historical Fixes Recorded", False, str(e))
+
+            # Test Case 10.2: Draft Incident from Logs via Groq
+            try:
+                sample_trace = "ERROR: Cython ABI version mismatch on numpy 2.0.0"
+                r = client.post(f"{BASE_URL}/api/v1/devops-agent/draft-from-logs", json={"logs": sample_trace, "service": "ml-inference-service", "environment": "production"}, timeout=15.0)
+                res = r.json()
+                self.assert_test("Draft Incident from Logs Responds 200", r.status_code == 200)
+                self.assert_test("Draft Contains Title & Root Cause Hypothesis", bool(res.get("title")) and bool(res.get("root_cause")))
+                self.assert_test("Draft Status Marked as 'draft'", res.get("status") == "draft")
+            except Exception as e:
+                self.assert_test("Draft Incident from Logs via Groq", False, str(e))
+
+            # Test Case 10.3: Controlled A/B Memory Comparison
+            try:
+                test_diff = """--- a/backend/requirements.txt
++++ b/backend/requirements.txt
+@@ -1,2 +1,2 @@
+-numpy>=1.24.0
++numpy>=2.0.0"""
+                r = client.post(f"{BASE_URL}/api/v1/devops-agent/compare-memory", json={"diff": test_diff}, timeout=15.0)
+                res = r.json()
+                self.assert_test("Controlled Memory A/B Endpoint 200", r.status_code == 200)
+                self.assert_test("Demonstrates Positive Risk Delta (Amnesia vs Guardian)", res.get("risk_delta", 0) > 0)
+            except Exception as e:
+                self.assert_test("Controlled Memory A/B Comparison", False, str(e))
+
+            # Test Case 10.4: Architectural Policy Supersession
+            try:
+                r = client.post(f"{BASE_URL}/api/v1/devops-agent/supersede-incident", json={
+                    "old_incident_id": "inc-62",
+                    "new_title": "Automated Secret Injection via Vault Operator",
+                    "new_prevention_rule": "Secrets dynamically mounted by Vault Agent sidecar.",
+                    "reason": "Infrastructure migration to HashiCorp Vault"
+                }, timeout=15.0)
+                res = r.json()
+                self.assert_test("Supersede Incident Lineage Updated (200)", r.status_code == 200 and res.get("status") == "superseded")
+            except Exception as e:
+                self.assert_test("Architectural Policy Supersession", False, str(e))
 
         # ─────────────────────────────────────────────────────────────
         # SUMMARY REPORT

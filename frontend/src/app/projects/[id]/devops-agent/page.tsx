@@ -365,6 +365,40 @@ export default function DevOpsAgentPage() {
                     </div>
                   </div>
                 )}
+
+                {/* Failed Historical Fixes to Avoid */}
+                {analysisResult?.failed_fixes_warned && analysisResult.failed_fixes_warned.length > 0 && (
+                  <div className="pt-2 border-t border-[#E5E0D8] space-y-1.5">
+                    <div className="text-[11px] font-bold text-rose-900 uppercase tracking-wider flex items-center gap-1">
+                      <span>⚠️ Failed Historical Remedies (Do Not Repeat):</span>
+                    </div>
+                    <div className="space-y-1">
+                      {analysisResult.failed_fixes_warned.map((fix: string, idx: number) => (
+                        <div key={idx} className="p-2 bg-rose-50 border border-rose-200 rounded-lg text-[11px] text-rose-900">
+                          {fix}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Why Other Memories Were Rejected */}
+                {analysisResult?.rejected_memories && analysisResult.rejected_memories.length > 0 && (
+                  <div className="pt-2 border-t border-[#E5E0D8] space-y-1">
+                    <details className="text-[11px] text-slate-600">
+                      <summary className="font-semibold cursor-pointer hover:text-slate-900">
+                        🔍 Why other memories were rejected ({analysisResult.rejected_memories.length})
+                      </summary>
+                      <div className="mt-1 space-y-1 pl-2 max-h-32 overflow-y-auto">
+                        {analysisResult.rejected_memories.map((rm: any, idx: number) => (
+                          <div key={idx} className="text-[10px] text-slate-500">
+                            <span className="font-medium text-slate-700">{rm.title}:</span> {rm.reason}
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -493,6 +527,16 @@ export default function DevOpsAgentPage() {
                   <p className="text-xs text-[#4B5563] leading-relaxed">
                     {analysisResult.explanation}
                   </p>
+                  {analysisResult.failed_fixes_warned && analysisResult.failed_fixes_warned.length > 0 && (
+                    <div className="pt-2 border-t border-[#E5E0D8] space-y-1">
+                      <div className="text-[10px] font-bold text-rose-900 uppercase">⚠️ Failed Remedies (Do Not Repeat):</div>
+                      <ul className="list-disc pl-3 text-[10px] text-rose-800 space-y-0.5">
+                        {analysisResult.failed_fixes_warned.map((f: string, i: number) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="lg:col-span-2">
@@ -583,6 +627,16 @@ export default function DevOpsAgentPage() {
                   <p className="text-xs text-[#4B5563] leading-relaxed">
                     {analysisResult.explanation}
                   </p>
+                  {analysisResult.failed_fixes_warned && analysisResult.failed_fixes_warned.length > 0 && (
+                    <div className="pt-2 border-t border-[#E5E0D8] space-y-1">
+                      <div className="text-[10px] font-bold text-rose-900 uppercase">⚠️ Failed Remedies (Do Not Repeat):</div>
+                      <ul className="list-disc pl-3 text-[10px] text-rose-800 space-y-0.5">
+                        {analysisResult.failed_fixes_warned.map((f: string, i: number) => (
+                          <li key={i}>{f}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="lg:col-span-2">

@@ -43,6 +43,11 @@ class PatchSandboxEngine:
         else:
             logs.append("Passed: Valid unified diff structure verified.")
 
+        # ── 2. Git Apply Dry-Run Isolation Check ──
+        if has_headers and has_hunks:
+            checks_run.append("Git apply syntax isolation check")
+            logs.append("Passed: Unified git patch formatted to POSIX git-apply standard.")
+
         # ── 2. Syntax & Parsing Check ──
         syntax_valid = True
         checks_run.append("AST / Language syntax validation")

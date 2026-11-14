@@ -14,7 +14,10 @@ from app.schemas.devops_agent import (
     ScenarioPreset,
     ReflectionResponse,
     GitHubPRAnalyzeRequest,
-    VerifyCustomPatchRequest
+    VerifyCustomPatchRequest,
+    DraftIncidentFromLogsRequest,
+    DraftIncidentFromLogsResponse,
+    SupersedeIncidentRequest
 )
 from app.engines.hindsight_devops_engine import hindsight_devops_engine
 from app.engines.patch_sandbox_engine import patch_sandbox_engine
@@ -30,7 +33,9 @@ async def analyze_pr_diff(request: PRAnalysisRequest):
             scenario_id=request.scenario_id,
             mode=request.mode,
             pr_title=request.pr_title,
-            pr_url=request.pr_url
+            pr_url=request.pr_url,
+            service=request.service,
+            environment=request.environment
         )
         return res
     except Exception as e:
@@ -223,3 +228,44 @@ async def get_story_mode_timeline():
 async def get_scenarios():
     """Retrieve pre-loaded enterprise scenarios for 1-click demo testing."""
     return hindsight_devops_engine.get_scenarios()
+
+@router.post("/draft-from-logs", response_model=DraftIncidentFromLogsResponse)
+async def draft_incident_from_logs(request: DraftIncidentFromLogsRequest):
+    """Use Groq LLM to synthesize an unverified post-mortem hypothesis draft from raw error logs."""
+    try:
+        draft = await hindsight_devops_engine.draft_incident_from_logs(
+            logs=request.logs,
+            service=request.service or "ml-inference-service",
+            environment=request.environment or "production"
+        )
+        return draft
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Log draft synthesis failed: {str(e)}")
+
+@router.post("/supersede-incident")
+async def supersede_incident(request: SupersedeIncidentRequest):
+    """Supersede an existing incident memory with a newer architectural policy constraint."""
+    try:
+        res = await hindsight_devops_engine.supersede_incident(
+            old_incident_id=request.old_incident_id,
+            new_title=request.new_title,
+            new_prevention_rule=request.new_prevention_rule,
+            reason=request.reason,
+            new_max_workers=request.new_max_workers
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Supersede incident failed: {str(e)}")
+
+@router.post("/compare-memory")
+async def compare_memory_ab(request: PRAnalysisRequest):
+    """Execute a controlled A/B evaluation of the exact same diff: baseline without memory vs ORVIN Guardian."""
+    try:
+        res = await hindsight_devops_engine.compare_memory_ab(
+            diff=request.diff,
+            service=request.service,
+            environment=request.environment
+        )
+        return res
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Controlled comparison failed: {str(e)}")

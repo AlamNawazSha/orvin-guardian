@@ -142,7 +142,17 @@ class ChangeIntelligenceEngine:
                 if ev.get("recommendation"):
                     recommendations.append(ev["recommendation"])
 
-        # ── 5. EPISODIC MEMORY HISTORICAL CORRELATION ──
+        # ── 5. PERMISSIONS & NETWORK EXPOSURE CHECK ──
+        perm_evidence = self._check_permissions_and_exposure(parsed_files, diff_lower)
+        if perm_evidence:
+            evidence_factors.extend(perm_evidence)
+            for ev in perm_evidence:
+                total_risk += ev["risk_points"]
+                issues_found.append(ev["issue"])
+                if ev.get("recommendation"):
+                    recommendations.append(ev["recommendation"])
+
+        # ── 6. EPISODIC MEMORY HISTORICAL CORRELATION ──
         # If past incident memories closely match the changes, increase confidence & risk
         if recalled_memories:
             for mem in recalled_memories:
@@ -303,7 +313,7 @@ class ChangeIntelligenceEngine:
         evidence = []
         is_migration = any("alembic" in f["new_path"] or "migration" in f["new_path"] or ".sql" in f["new_path"] for f in files)
 
-        if is_migration or "drop column" in diff_lower or "drop_column" in diff_lower:
+        if is_migration or "drop column" in diff_lower or "drop_column" in diff_lower or "drop table" in diff_lower or "delete from" in diff_lower:
             if "drop column" in diff_lower or "drop_column" in diff_lower:
                 evidence.append({
                     "category": "destructive_database_change",
@@ -312,7 +322,43 @@ class ChangeIntelligenceEngine:
                     "issue": "Destructive column drop detected in database schema migration. Breaks backward compatibility with active application pods.",
                     "recommendation": "Follow two-phase deploy: deprecate column in code first, verify zero queries, then drop column in subsequent release."
                 })
+            elif "drop table" in diff_lower or "truncate" in diff_lower:
+                evidence.append({
+                    "category": "destructive_database_change",
+                    "severity": "CRITICAL",
+                    "risk_points": 45,
+                    "issue": "Destructive DROP TABLE or TRUNCATE operation detected. May cause unrecoverable data loss in production.",
+                    "recommendation": "Require senior architectural review, point-in-time backup verification, and staged migration."
+                })
+            elif re.search(r"delete\s+from\b", diff_lower) and not re.search(r"\bwhere\b", diff_lower):
+                evidence.append({
+                    "category": "destructive_database_change",
+                    "severity": "HIGH",
+                    "risk_points": 35,
+                    "issue": "Potential unbounded DELETE statement detected without WHERE clause.",
+                    "recommendation": "Specify explicit filter or enforce batch deletion constraints."
+                })
 
+        return evidence
+
+    def _check_permissions_and_exposure(self, files: List[Dict[str, Any]], diff_lower: str) -> List[Dict[str, Any]]:
+        evidence = []
+        if re.search(r"privileged\s*:\s*true", diff_lower):
+            evidence.append({
+                "category": "permissions_exposure",
+                "severity": "CRITICAL",
+                "risk_points": 35,
+                "issue": "Container configured with privileged: true, granting root host kernel capabilities.",
+                "recommendation": "Grant explicit Linux capabilities (CAP_ADD) instead of full privileged container mode."
+            })
+        if re.search(r"chmod\s+777", diff_lower) or "0.0.0.0/0" in diff_lower:
+            evidence.append({
+                "category": "permissions_exposure",
+                "severity": "HIGH",
+                "risk_points": 30,
+                "issue": "Overly broad permission (chmod 777) or unrestricted network ingress (0.0.0.0/0) detected.",
+                "recommendation": "Restrict CIDR block to internal VPC subnets and enforce least-privilege file permissions (chmod 750/644)."
+            })
         return evidence
 
 change_intelligence_engine = ChangeIntelligenceEngine()
