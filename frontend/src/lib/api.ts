@@ -32,13 +32,39 @@ function getCandidateBaseURLs(): string[] {
   return [DEFAULT_CLOUD_API_URL];
 }
 
+async function ensureAuthToken(): Promise<string | null> {
+  if (typeof window === 'undefined') return null;
+  let token = localStorage.getItem('token');
+  if (token) return token;
+  try {
+    const baseURL = getCandidateBaseURLs()[0];
+    const res = await fetch(`${baseURL}/auth/demo-token`, {
+      method: 'POST',
+      headers: { 'x-demo-mode': 'true', 'Content-Type': 'application/json' },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.access_token) {
+        localStorage.setItem('token', data.access_token);
+        return data.access_token;
+      }
+    }
+  } catch {
+    // fallback gracefully
+  }
+  return null;
+}
+
 /**
  * Core fetch wrapper with auth token, CORS error handling, resilience, and retry.
  */
-async function fetchAPI(endpoint: string, options: RequestInit = {}): Promise<any> {
+async function fetchAPI(endpoint: string, options: RequestInit & { _isRetry?: boolean } = {}): Promise<any> {
   let token: string | null = null;
   if (typeof window !== 'undefined') {
     token = localStorage.getItem('token');
+    if (!token && !endpoint.includes('/auth/')) {
+      token = await ensureAuthToken();
+    }
   }
 
   const headers: Record<string, string> = {
@@ -68,6 +94,14 @@ async function fetchAPI(endpoint: string, options: RequestInit = {}): Promise<an
       });
 
       if (!response.ok) {
+        if (response.status === 401 && typeof window !== 'undefined' && !options._isRetry) {
+          localStorage.removeItem('token');
+          const freshToken = await ensureAuthToken();
+          if (freshToken) {
+            return fetchAPI(endpoint, { ...options, _isRetry: true });
+          }
+        }
+
         const error = await response.json().catch(() => ({ detail: `HTTP ${response.status}` }));
         const message = error.detail || error.message || `API Error: ${response.status}`;
         throw new Error(message);

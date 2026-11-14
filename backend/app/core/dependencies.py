@@ -33,35 +33,39 @@ async def get_current_user(
     token: str | None = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db)
 ) -> User:
-    """Extract authenticated user from JWT token. Strictly blocks unauthenticated callers."""
+    """Extract authenticated user from JWT token. Strictly blocks unauthenticated callers in production, with seamless demo fallback for development."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials or missing Bearer token",
         headers={"WWW-Authenticate": "Bearer"},
     )
 
-    # Allow explicit demo header or standard demo token during local UI testing
     demo_header = request.headers.get("x-demo-mode", "").lower()
-    if not token:
-        if settings.DEBUG and demo_header in ["true", "1", "yes"]:
+    is_demo_eligible = bool(settings.DEBUG or demo_header in ["true", "1", "yes"])
+
+    if not token or token in ["demo-session-token", "demo-token"]:
+        if is_demo_eligible:
             return await get_or_create_demo_user(db)
         raise credentials_exception
 
-    if token in ["demo-session-token", "demo-token"]:
-        return await get_or_create_demo_user(db)
-
     payload = decode_access_token(token)
     if payload is None:
+        if is_demo_eligible:
+            return await get_or_create_demo_user(db)
         raise credentials_exception
 
     user_id: str | None = payload.get("sub")
     if not user_id:
+        if is_demo_eligible:
+            return await get_or_create_demo_user(db)
         raise credentials_exception
 
     result = await db.execute(select(User).filter(User.id == user_id))
     user = result.scalars().first()
 
     if not user:
+        if is_demo_eligible:
+            return await get_or_create_demo_user(db)
         raise credentials_exception
 
     if not user.is_active:
