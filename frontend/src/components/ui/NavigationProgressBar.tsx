@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useTransition } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { Loader2 } from 'lucide-react';
-import { AdvancedOrbitalLoader } from '@/components/ui/AdvancedOrbitalLoader';
+import { SpokePillLoader } from '@/components/ui/SpokePillLoader';
 
 function NavigationProgressBarInner() {
   const pathname = usePathname();
@@ -119,12 +119,10 @@ function NavigationProgressBarInner() {
         />
       </div>
 
-      {/* Center Screen Advanced Futuristic Orbital Loader (No Text, High-Tech Gyro Reactor) */}
+      {/* Center Screen Spoke & Pill Loader matching reference design */}
       {showSlowNotice && isNavigating && (
-        <div className="fixed inset-0 z-[99999] pointer-events-none flex items-center justify-center bg-black/20 backdrop-blur-[2px] animate-fade-in">
-          <div className="p-7 rounded-3xl bg-[#0F172A]/90 border border-slate-700/60 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] backdrop-blur-md animate-scale-up">
-            <AdvancedOrbitalLoader size="md" />
-          </div>
+        <div className="fixed inset-0 z-[99999] pointer-events-none flex items-center justify-center bg-black/25 backdrop-blur-[2px] animate-fade-in">
+          <SpokePillLoader size="md" showCard={true} />
         </div>
       )}
     </>

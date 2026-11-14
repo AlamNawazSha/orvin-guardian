@@ -5,7 +5,7 @@ import { FolderPlus, ArrowRight, Loader2 } from 'lucide-react';
 import { Card, CardBody, CardHeader } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
-import { AdvancedOrbitalLoader } from '@/components/ui/AdvancedOrbitalLoader';
+import { SpokePillLoader } from '@/components/ui/SpokePillLoader';
 import { api } from '@/lib/api';
 
 export default function NewProjectPage() {
@@ -70,8 +70,8 @@ export default function NewProjectPage() {
         </CardHeader>
         <CardBody className="p-6 relative">
           {loading && (
-            <div className="absolute inset-0 bg-[#FFFDF9]/90 backdrop-blur-xs z-20 flex items-center justify-center rounded-2xl animate-fade-in p-6">
-              <AdvancedOrbitalLoader size="sm" />
+            <div className="absolute inset-0 bg-[#FFFDF9]/95 backdrop-blur-xs z-20 flex items-center justify-center rounded-2xl animate-fade-in p-6">
+              <SpokePillLoader size="sm" showCard={false} />
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-6">
